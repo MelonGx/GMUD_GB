@@ -14,3 +14,4 @@
 4. 支援 GAMEBOY 對戰線連線，但不支援 GBC 紅外線
 
 格式：MBC5 / 32 KiB RAM
+- 不支援 DMG (厚磚 Gameboy) / MGB (Gameboy Pocket)
