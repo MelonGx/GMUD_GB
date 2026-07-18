@@ -1,4 +1,4 @@
-本品移植自 NC2000 英雄坛说白金版 源代碼，由 Claude Fable 5 使用 GBDK 2020 製作而成。
+本品移植自 Lee 開源的 NC2000 英雄坛说白金版 源代碼，由 Claude Fable 5 使用 GBDK 2020 製作而成。
 
 1. Menu 增加 速度 欄
    - EXT：與原版相同
@@ -13,5 +13,4 @@
 
 4. 支援 GAMEBOY 對戰線連線，但不支援 GBC 紅外線
 
-格式
-MBC5 / 32 KiB RAM
+格式：MBC5 / 32 KiB RAM
