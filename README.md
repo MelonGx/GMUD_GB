@@ -27,5 +27,5 @@
    - 不支援 MGB (Gameboy Pocket)
 
 8. 編譯要求
-   - tools/gbdk 目錄需放置 GBDK 2020 整個程式
+   - tools/gbdk 目錄需放置 GBDK 2020 整個程式 (https://github.com/gbdk-2020/gbdk-2020)
    - Windows 作業系統 + Python 3.10+ + GNU MAKE
