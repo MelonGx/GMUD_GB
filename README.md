@@ -25,3 +25,7 @@
 7. ROM 格式：MBC5 / 32 KiB RAM
    - 不支援 DMG (厚磚 Gameboy)
    - 不支援 MGB (Gameboy Pocket)
+
+8. 編譯要求
+   - tools/gbdk 目錄需放置 GBDK 2020 整個程式
+   - Windows 作業系統 + Python 3.10+ + GNU MAKE
