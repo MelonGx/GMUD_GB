@@ -1,5 +1,5 @@
 /* 自動產生:bin2banks.py gmud_patched.map,勿手改 */
-#pragma bank 18
+#pragma bank 10
 #include <stdint.h>
 
 const uint8_t mapblob_b1[3147] = {

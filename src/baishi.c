@@ -5,7 +5,7 @@
  * 出境 = 原版 move_to_img → img_buf 的等效。
  * get_lvl:未習得 → 0(原版讀 man_kf 空槽,new_game 清零後同值)。
  */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include <string.h>
 #include "baishi.h"
@@ -162,7 +162,7 @@ static uint8_t yuhongru(void)               /* 余泓儒 */
     return 1;
 }
 
-static uint8_t hezhongyang(void)            /* 賀中央(哪吒門) */
+static uint8_t hezhongyang(void)            /* 賀中央(尹賀谷) */
 {
     if (get_lvl(RENSHU_KF) < 120) {
         bs_msg = bs_naja_flvl_msg;

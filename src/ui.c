@@ -1,5 +1,5 @@
 /* ui.c - UI 基礎例程(對照見 ui.h)。代碼在 bank 25。 */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include <string.h>
 #include "ui.h"
@@ -7,16 +7,17 @@
 #include "font.h"
 #include "text.h"
 #include "menutext.h"
+#include "blit.h"
 #include "game.h"
 #include "save.h"
 #include "skill.h"
 
 /* ---- 按鍵:等效 system.s wait_key + key 回推 ---- */
-static uint8_t pushed;
+uint8_t ui_pushed_key;
 
 void push_key(uint8_t k) BANKED
 {
-    pushed = k;
+    ui_pushed_key = k;
 }
 
 static uint8_t map_pad(uint8_t j)
@@ -35,9 +36,9 @@ uint8_t wait_key(void) BANKED
 {
     uint8_t k;
 
-    if (pushed) {
-        k = pushed;
-        pushed = 0;
+    if (ui_pushed_key) {
+        k = ui_pushed_key;
+        ui_pushed_key = 0;
         return k;
     }
     waitpadup();
@@ -50,70 +51,8 @@ uint8_t wait_key(void) BANKED
     }
 }
 
-/* ---- 等效 system.s sys_refresh(遊戲時鐘 + 回復) ---- */
-#define TICK_TIME 15                /* 原版 gmud.h:15 秒一跳 */
-
-static uint16_t hb_anchor;
-static uint8_t timetick;
-
-void heart_beat_reset(void) BANKED
-{
-    hb_anchor = sys_time;
-    timetick = TICK_TIME;
-}
-
-void heart_beat(void) BANKED
-{
-    uint16_t v;
-    uint8_t y;
-
-    while ((uint16_t)(sys_time - hb_anchor) >= 60) {
-        hb_anchor += 60;
-
-        if (++hero.game_sec >= 60) {
-            hero.game_sec = 0;
-            if (++hero.game_min >= 60) {
-                hero.game_min = 0;
-                hero.game_hour++;
-            }
-        }
-        hero.mud_age++;
-
-        if (busy_flag & 0x80)       /* 戰鬥/學習/釣魚中不回復 */
-            continue;
-        if (--timetick)
-            continue;
-        timetick = TICK_TIME;
-
-        if (hero.man_food == 0)
-            continue;
-        hero.man_food--;
-        if (hero.man_water == 0)
-            continue;
-        hero.man_water--;
-
-        /* 精血:con/2 + maxfp/16;到頂時 effhp 緩升 */
-        v = (hero.man_maxfp >> 4) + (hero.man_con >> 1);
-        hero.man_hp += v;
-        if (hero.man_hp >= hero.man_effhp) {
-            hero.man_hp = hero.man_effhp;
-            if (hero.man_effhp < hero.man_maxhp)
-                hero.man_effhp++;
-        }
-
-        /* 內力:基本內功等級/次 */
-        if (hero.man_maxfp == 0)
-            continue;
-        if (hero.man_fp >= hero.man_maxfp)
-            continue;
-        y = find_kf(0);             /* BASIC_FORCE_KF */
-        if (y == 0xFF)
-            continue;
-        hero.man_fp += hero.man_kf[y + 1];
-        if (hero.man_fp >= hero.man_maxfp)
-            hero.man_fp = hero.man_maxfp;
-    }
-}
+/* 遊戲世界時鐘與自然回復(sys_refresh)已遷至 clock.c(bank 31):
+ * bank 26 逼近上限,而那段只碰 WRAM 全域與 HOME 的 find_kf。 */
 
 /* ---- 線/反白 ---- */
 void ui_hline(uint8_t x0, uint8_t x1, uint8_t y) BANKED
@@ -132,20 +71,7 @@ void ui_vline(uint8_t x, uint8_t y0, uint8_t y1) BANKED
     fb_mark_dirty(y0, y1 - y0 + 1);
 }
 
-void ui_invert(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED
-{
-    uint8_t r, i;
-    uint8_t *row;
-
-    for (r = 0; r < h; r++) {
-        row = fb + (uint16_t)(y + r) * FB_STRIDE;
-        for (i = 0; i < w; i++) {
-            uint8_t px = x + i;
-            row[px >> 3] ^= 0x80 >> (px & 7);
-        }
-    }
-    fb_mark_dirty(y, h);
-}
+/* ui_invert 已遷至 uiinv.c(bank 31),見該檔說明 */
 
 void clear_nline2(uint8_t y, uint8_t n) BANKED
 {
@@ -160,6 +86,10 @@ static uint8_t show_one_line_to(uint8_t xh, uint8_t xh1, uint8_t y)
 {
     uint8_t n = 0;
     uint8_t c;
+    uint8_t x = xh * 6;
+    uint8_t x1 = xh1 * 6;
+    uint8_t w;
+    uint16_t code;
 
     for (;;) {
         c = ss_ptr[n];
@@ -168,17 +98,17 @@ static uint8_t show_one_line_to(uint8_t xh, uint8_t xh1, uint8_t y)
             return n;
         }
         if (c & 0x80) {                     /* 全形 */
-            if (xh + 2 > xh1)
+            code = ((uint16_t)c << 8) | ss_ptr[n + 1];
+            w = (code == 0xA2FC || code == 0xA2FD) ? 4 : 12;
+            if (x + w > x1)
                 break;
-            font_draw_cjk(xh * 6, y, ((uint16_t)c << 8) | ss_ptr[n + 1]);
+            x += font_draw_cjk(x, y, code);
             n += 2;
-            xh += 2;
         } else {
-            if (xh + 1 > xh1)
+            if (x + 6 > x1)
                 break;
-            font_draw_ascii(xh * 6, y, c);
+            x += font_draw_ascii(x, y, c);
             n += 1;
-            xh += 1;
         }
     }
     ss_ptr += n;                            /* 超寬:餘下續於下一行 */
@@ -292,12 +222,16 @@ static void digit_show(uint8_t x, uint8_t y, uint16_t v)
     uint8_t b[6];
     uint8_t i = 5;
 
+    memset(b, ' ', 5);
     b[5] = 0;
     do {
         b[--i] = '0' + (uint8_t)(v % 10);
         v /= 10;
     } while (v);
-    font_draw_text_replace(x + 3, y + 2, b + i);
+    /* Always redraw all five cells.  Besides matching the original
+     * right-aligned input, this clears stale low-order digits when the
+     * value shrinks across a decimal boundary (100 -> 99). */
+    font_draw_text_replace(x + 3, y + 2, b);
     fb_flush();
 }
 
@@ -352,6 +286,27 @@ static void show_text_body(void)
     fb_flush();
 }
 
+/* 訊息停留的原版基準(RTC 256Hz tick):
+ *   lee1.s:76   show_text       waittime(100) + delay_1_sec
+ *   fight.s:1312 show_fight_msg waittime(100),接著 `bit net_flag / bmi
+ *                not_delay`——只有單機才補 delay_1_sec,聯機就到此為止
+ *   system.s:242 delay_1_sec 名字叫一秒,實際是 waittime(240) = 240/256 s
+ * 所以 單機/服務 = 100+240 = 340 tick = 1328.125ms;聯機 = 100 tick =
+ * 390.625ms。
+ *
+ * 換算:一 tick = 1/256 s,一幀 = 70224/4194304 s,
+ *     幀 = tick × 4194304/(256×70224) = tick × 1024/4389
+ *     340 tick → 79.33 幀    100 tick → 23.33 幀
+ * 舊值兩處都寫死 110 幀:EXT 比原版慢 39%(1.842s vs 1.328s),聯機那條
+ * 更慢 4.7 倍——原版聯機根本不等那 240 tick,因為對方也在等,兩邊各等
+ * 一次就變成雙倍停頓。速度檔的位移改成套在 tick 上再換算,比例才精確。
+ *
+ * 速度檔的位移套在 tick 上,所以只有六種組合,直接查表——bank26 只剩幾十
+ * 字節,擺不下乘除或餘數累加器。四捨五入的誤差最大 2.9%(ADV 聯機那格),
+ * 相對於原本 39% 的偏差可以忽略,EXT 那格更是只差 -0.4%。 */
+static const uint8_t msg_frames[3] = { 79, 40, 20 };  /* 340/170/85 tick */
+static const uint8_t net_frames[3] = { 23, 12,  6 };  /* 100/ 50/25 tick */
+
 static void text_wait(uint8_t frames)
 {
     uint8_t t;
@@ -360,12 +315,12 @@ static void text_wait(uint8_t frames)
         vsync();
 }
 
-/* 戰鬥訊息(show_fight_msg 專用):ADV/BSC 等待減半(x2,
- * 2026-07-17 用戶定版;原版 110 幀) */
+/* 戰鬥訊息(等效 show_fight_msg):ADV/BSC 等待減半(2026-07-17 用戶定版) */
 void show_text_out(void) BANKED
 {
     show_text_body();
-    text_wait(110 >> fight_shift());
+    text_wait((net_flag & 0x80) ? net_frames[fight_shift()]
+                                : msg_frames[fight_shift()]);
 }
 
 /* 打坐/療傷等服務訊息(serve.c 專用):ADV/BSC 等待 x4 */
@@ -373,7 +328,7 @@ void show_text(const uint8_t *msg) BANKED
 {
     format_string(msg);
     show_text_body();
-    text_wait(110 >> disp_shift());
+    text_wait(msg_frames[disp_shift()]);
 }
 
 /* ---- 等效 aux.s show_process(重建) ---- */
@@ -397,35 +352,48 @@ void show_process(uint8_t x, uint8_t y, void (*set_line)(void),
                   void (*set_digit)(void), uint8_t interval,
                   uint8_t (*program)(void)) BANKED
 {
+    /* Treat the 64px bar and the widest possible "65535/65535" label as
+     * one centered group.  Shorter labels are centered in the 66px field. */
+#define PROCESS_BAR_W 64
+#define PROCESS_BAR_OUTER_W (PROCESS_BAR_W + 2)
+#define PROCESS_GAP 3
+#define PROCESS_TEXT_CHARS 11
+#define PROCESS_TEXT_W (PROCESS_TEXT_CHARS * 6)
+#define PROCESS_TOTAL_W (PROCESS_BAR_OUTER_W + PROCESS_GAP + PROCESS_TEXT_W)
     uint8_t buf[12];
-    uint8_t w, t, j;
-    uint8_t prev_len = 0;   /* 上輪數字串長:縮短時補空格蓋殘字 */
+    uint8_t w, t, j, len, text_x;
     uint8_t *p;
 
-    for (;;) {
-        /* 進度條:binbuf/bcdbuf → 64px */
-        set_line();
-        w = (bcdbuf && binbuf < bcdbuf)
-                ? (uint8_t)(((uint32_t)binbuf << 6) / bcdbuf) : 64;
-        draw_box(x, y, x + 65, y + 8);
-        if (w)
-            fb_fill_rect(x + 1, y + 2, w, 5, 1);
+    /* Progress is a full-screen transient overlay.  Restore the map first so
+     * the previous menu frame cannot show through or have its top edge
+     * overwritten by the bar and digits. */
+    scroll_to_lcd();
+    fb_flush();
+    x = (ScreenX - PROCESS_TOTAL_W) >> 1;
 
-        /* 數字 cur/max。replace 模式只蓋自己畫的格:若比上輪短
-         * (打坐 200/100 → 4/101),尾端殘留舊字(顯示 4/10100),
-         * 故補空格清到上輪長度。 */
+    for (;;) {
+        /* Build and center cur/max in a fixed 11-cell field first. */
         set_digit();
         put_num(buf, binbuf);
         p = buf + strlen((char *)buf);
         *p++ = '/';
         put_num(p, bcdbuf);
-        w = (uint8_t)strlen((char *)buf);
-        t = w;
-        while (t < prev_len && t < sizeof(buf) - 1)
-            buf[t++] = ' ';
-        buf[t] = 0;
-        prev_len = w;
-        font_draw_text_replace(x + 68, y, buf);
+        len = (uint8_t)strlen((char *)buf);
+        text_x = x + PROCESS_BAR_OUTER_W + PROCESS_GAP
+               + ((PROCESS_TEXT_W - len * 6) >> 1);
+
+        /* Progress bar: binbuf/bcdbuf -> PROCESS_BAR_W px. */
+        set_line();
+        w = (bcdbuf && binbuf < bcdbuf)
+                ? (uint8_t)(((uint32_t)binbuf << 6) / bcdbuf)
+                : PROCESS_BAR_W;
+        draw_box(x, y, x + PROCESS_BAR_W + 1, y + 8);
+        if (w)
+            fb_fill_rect(x + 1, y + 2, w, 5, 1);
+
+        fb_fill_rect(x + PROCESS_BAR_OUTER_W + PROCESS_GAP, y,
+                     PROCESS_TEXT_W, 13, 0);
+        font_draw_text_replace(text_x, y, buf);
         fb_flush();
 
         if (program())
@@ -441,6 +409,12 @@ void show_process(uint8_t x, uint8_t y, void (*set_line)(void),
             }
         }
     }
+#undef PROCESS_TOTAL_W
+#undef PROCESS_TEXT_W
+#undef PROCESS_TEXT_CHARS
+#undef PROCESS_GAP
+#undef PROCESS_BAR_OUTER_W
+#undef PROCESS_BAR_W
 }
 
 uint8_t percent(uint16_t a, uint16_t b) BANKED
@@ -470,6 +444,9 @@ uint16_t random_it(uint16_t range) BANKED
     mud_seed = (mud_seed & 0xFF00)
              | (uint8_t)((uint8_t)(DIV_REG << 1) + DIV_REG
                          + (uint8_t)mud_seed);
+    /* 註:65531 = 65536-5,寫成 (s<<16)-(s<<2)-s+1 可省掉 __mullong,結果
+     * 逐位相同——但 2026-07-29 實測那樣展開的碼更大,當場把 bank 26
+     * (當時只剩 63 字節)撐爆 42 字節。要做這個優化得先騰出 bank 26。 */
     v = (uint32_t)mud_seed * 65531UL + 1;
     mud_seed = (uint16_t)v;
     return (uint16_t)(v % range);

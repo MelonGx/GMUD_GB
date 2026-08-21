@@ -13,13 +13,15 @@
  * 攻擊(attack_xxx)、招式威力(skill_power)、勝負(who_win)、訊息顯示
  * (show_fight_msg)直呼同 bank 的 fight.c(fight_internal.h,裸調無跳板)。
  *
- * !! 忠實原版:refresh_data 依「當下 obj_flag」還原(call_out 時 obj_flag
- *    多為 0),故主角 buff 的到期還原走 you 側——此為原版行為,照搬。
+ * !! 原版 call_out 依「當下 obj_flag」還原+報訊,而到期幾乎總落在敵方
+ *    反擊後(obj_flag=0)→ 到期訊息 $N 錯報敵名、主角 buff 還原寫進敵側
+ *    (主角實質永 buff、敵屬性被舊值蓋)。用戶定版 2026-07-18:
+ *    訊息主語一律改按 buff 所屬側;屬性還原側 EXT/ADV 修正、BSC 保留原版。
  *
  * bank 27(fight)已近滿,絕招置 bank 26;對 fight.c 的攻防/威力/訊息
  * 呼叫經 fight_internal.h 的 pf_* BANKED 跳板。
  */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
@@ -106,6 +108,8 @@
 #define BINGXIN_PF   21
 #define LIUCHU_PF    22
 #define QINNA_PF     23     /* shengui */
+#define YAKYU_PF     24     /* 野球拳(GBC original, BSC only) */
+#define MENGHU_KF    40
 
 /* ---- PERFORM_TEXT 訊息序號(h/perform_id.h)---- */
 #define PT_ZHANGDAO_SUCESS  0
@@ -406,6 +410,77 @@ static void refresh_data(uint8_t val, uint8_t pos)
     }
 }
 
+#define FENSHEN_TAG0 0x46
+#define FENSHEN_TAG1 0x53
+
+/* reserve_buf[1..2] 標記 BSC 影分身殘留。雙字節避免舊存檔的保留區
+ * 偶然被誤認；man_kar==0xFF 另兼容標記加入前已產生的舊殘留。 */
+static uint8_t fenshen_feature_marked(void)
+{
+    return hero.reserve_buf[1] == FENSHEN_TAG0
+        && hero.reserve_buf[2] == FENSHEN_TAG1;
+}
+
+static void fenshen_feature_mark(void)
+{
+    if (speed_mode == 2) {
+        hero.reserve_buf[1] = FENSHEN_TAG0;
+        hero.reserve_buf[2] = FENSHEN_TAG1;
+    }
+}
+
+static void fenshen_feature_unmark(void)
+{
+    hero.reserve_buf[1] = 0;
+    hero.reserve_buf[2] = 0;
+}
+
+/* 回到非影分身狀態的合法值。福緣沒有後天加成；容貌要包含目前
+ * 駐顏術等級，不能直接退回先天值。 */
+static void restore_fenshen_base(void)
+{
+    uint8_t y = find_kf(LOOKS_KF);
+
+    hero.man_per = hero.attr_per;
+    if (y != 0xFF)
+        hero.man_per += hero.man_kf[y + 1] / 10;
+    hero.man_kar = hero.attr_kar;
+}
+
+void fenshen_disable_bsc_feature(void) BANKED
+{
+    if (!fenshen_feature_marked() && hero.man_kar != 0xFF)
+        return;
+    restore_fenshen_base();
+    fenshen_feature_unmark();
+}
+
+/* 對局在 delay 歸零前結束：EXT/ADV 從 ptemp 精確還原；BSC 刻意
+ * 留下影分身效果。無論哪檔都清本場槽，下一場不得再拿舊倒數還原。 */
+void fenshen_fight_end(void) BANKED
+{
+    uint8_t saved = obj_flag;
+    uint8_t found, y;
+
+    obj_flag = 0x80;
+    found = find_ptemp(FENSHEN_PF);
+    if (found) {
+        if (speed_mode != 2) {
+            hero.man_per = pf_area[ptemp_off + 1];
+            hero.man_kar = pf_area[ptemp_off + 3];
+        }
+        pf_area[ptemp_off] = 0xFF;
+        for (y = 1; y < 6; y++)
+            pf_area[ptemp_off + y] = 0;
+    }
+    if (speed_mode != 2) {
+        if (!found && (fenshen_feature_marked() || hero.man_kar == 0xFF))
+            restore_fenshen_base();
+        fenshen_feature_unmark();
+    }
+    obj_flag = saved;
+}
+
 /* show_over_msg:buff 到期提示(僅部份招式有) */
 static void show_over_msg(uint8_t pid)
 {
@@ -430,16 +505,26 @@ void call_out(void) BANKED
 
     for (o = 0; o < PTEMP_SIZE + NPC_PTEMP_SIZE; o += 6) {
         uint8_t d = pf_area[o + 5];
+        uint8_t saved, owner;
         if (d == 0)
             continue;
         d--;
         pf_area[o + 5] = d;
         if (d != 0)
             continue;
-        /* call_out_serve:還原 → over 訊息 → 清槽 */
+        /* call_out_serve:還原 → over 訊息 → 清槽(側別見檔頭 !!) */
+        saved = obj_flag;
+        owner = (o < PTEMP_SIZE) ? 0x80 : 0x00;
+        if (speed_mode != 2)
+            obj_flag = owner;           /* EXT/ADV:還原到 buff 所屬側 */
         refresh_data(pf_area[o + 1], pf_area[o + 2]);
         refresh_data(pf_area[o + 3], pf_area[o + 4]);
+        if (speed_mode != 2 && o < PTEMP_SIZE
+                && pf_area[o] == FENSHEN_PF)
+            fenshen_feature_unmark();
+        obj_flag = owner;               /* 全模式:$N=buff 所屬側 */
         show_over_msg(pf_area[o + 0]);
+        obj_flag = saved;
         pf_area[o + 0] = 0xFF;
         pf_area[o + 1] = 0;
         pf_area[o + 2] = 0;
@@ -482,11 +567,57 @@ static void wield_weapon(void)
  * 收斂於此;單機無副作用)。 */
 static void attack_xxx(void)
 {
+    /* 原版 who_win 會非局部退出；C 版需明確中止後續連擊。
+     * 只跳過攻擊，仍讓絕招本體跑完武器/臨時數值的收尾。 */
+    if (combat_over)
+        return;
+
     net_repeat = 3;
     if (obj_flag & 0x80)
         pf_attack_npc();
     else
         pf_attack_man();
+}
+
+static uint8_t remove_wield_bonus(uint8_t value, uint8_t raw)
+{
+    int16_t v = (int16_t)value - (int8_t)raw;
+    return (v < 0) ? 0 : (uint8_t)v;
+}
+
+/* NPC 平常只在 init_npc 加入武器傷害；聯機 NPC 是對方玩家的鏡像，
+ * 其攻防也已包含武器修正，因此需額外回退。 */
+static void lose_npc_weapon(void)
+{
+    uint8_t weapon = npc.npc_goods[0];
+
+    if (!(weapon & 0x80))
+        return;
+
+    get_goods_attr(weapon & 0x7F);
+    npc.npc_damage = (npc.npc_damage >= goods_attr[2])
+                         ? npc.npc_damage - goods_attr[2] : 0;
+    if (net_flag & 0x80) {
+        npc.npc_attack = remove_wield_bonus(npc.npc_attack, goods_attr[3]);
+        npc.npc_defense = remove_wield_bonus(npc.npc_defense, goods_attr[4]);
+    }
+    npc.npc_goods[0] = 0;
+}
+
+static void lose_obj_weapon(void)
+{
+    if (obj_flag & 0x80)
+        lose_wielded_weapon();
+    else
+        lose_npc_weapon();
+}
+
+static void lose_you_weapon(void)
+{
+    if (obj_flag & 0x80)
+        lose_npc_weapon();
+    else
+        lose_wielded_weapon();
 }
 
 /* skill_xxx_power:依 obj_flag 決定 man/npc 側威力(經跳板) */
@@ -711,15 +842,7 @@ static uint8_t feizhi(void)
 
     /* 還原攻擊,並丟棄飛出的兵器(消耗 1、卸下) */
     pf_obj()[ATTACK_OFF] = saved_at;
-    if (obj_flag & 0x80) {
-        uint8_t x = find_goods(hero.man_weapon);
-        if (hero.man_goods[x + 1])
-            hero.man_goods[x + 1]--;
-        hero.man_weapon = 0;
-        hero.man_damage = 0;
-    } else {
-        npc.npc_goods[0] = 0;
-    }
+    lose_obj_weapon();
     return 0;
 }
 
@@ -1175,14 +1298,7 @@ static uint8_t luoying(void)
         if (ydex3 < p1) {                       /* shoot:奪下 */
             show_pf_text(PT_LUOYING_SHOOT);
             /* set_you_weapon(0):卸下/消耗承受方兵器 */
-            if (obj_flag & 0x80) {
-                npc.npc_goods[0] &= 0;          /* npc:and 0 */
-            } else {
-                uint8_t x = find_goods(hero.man_weapon);
-                if (hero.man_goods[x + 1]) hero.man_goods[x + 1]--;
-                hero.man_weapon = 0;
-                hero.man_damage = 0;
-            }
+            lose_you_weapon();
         } else {
             show_pf_text(PT_LUOYING_DODGE);
             set_obj_busy(2);
@@ -1426,6 +1542,7 @@ static uint8_t fenshen(void)
         hero.man_fp = (fp >= neili_cost) ? (uint16_t)(fp - neili_cost) : 0;
     }
     show_pf_text(PT_FENSHEN_SUCESS);
+    fenshen_feature_mark();
 
     lv = skill_level;
     temp_delay = (uint8_t)(lv / 20);
@@ -1485,6 +1602,85 @@ static uint8_t yianmu(void)
     return 0;
 }
 
+/* ================= 野球拳(GBC original, BSC only) ================= */
+static const uint8_t yakyu_cast_msg[] = {
+    /* $N嘴角一勾，似笑非笑，以迅雷不及掩耳之势贴近$n，使出了野球拳！ */
+    0x24,0x4E,0xD7,0xEC,0xBD,0xC7,0xD2,0xBB,
+    0xB9,0xB4,0xA3,0xAC,0xCB,0xC6,0xD0,0xA6,
+    0xB7,0xC7,0xD0,0xA6,0xA3,0xAC,0xD2,0xD4,
+    0xD1,0xB8,0xC0,0xD7,0xB2,0xBB,0xBC,0xB0,
+    0xD1,0xDA,0xB6,0xFA,0xD6,0xAE,0xCA,0xC6,
+    0xCC,0xF9,0xBD,0xFC,0x24,0x6E,0xA3,0xAC,
+    0xCA,0xB9,0xB3,0xF6,0xC1,0xCB,0xD2,0xB0,
+    0xC7,0xF2,0xC8,0xAD,0xA3,0xA1,
+    0x00, 0x00
+};
+static const uint8_t yakyu_hit_msg[] = {
+    /* $n顿时心神大乱，羞红了脸，呆若木鸡！ */
+    0x24,0x6E,0xB6,0xD9,0xCA,0xB1,0xD0,0xC4,
+    0xC9,0xF1,0xB4,0xF3,0xC2,0xD2,0xA3,0xAC,
+    0xD0,0xDF,0xBA,0xEC,0xC1,0xCB,0xC1,0xB3,
+    0xA3,0xAC,0xB4,0xF4,0xC8,0xF4,0xC4,0xBE,
+    0xBC,0xA6,0xA3,0xA1,
+    0x00, 0x00
+};
+static const uint8_t yakyu_miss_msg[] = {
+    /* 可惜被$n轻巧闪过 */
+    0xBF,0xC9,0xCF,0xA7,0xB1,0xBB,0x24,0x6E,
+    0xC7,0xE1,0xC7,0xC9,0xC9,0xC1,0xB9,0xFD,
+    0x00, 0x00
+};
+
+/* 訊息在本 bank(26)ROM,而 pf_show_fight_msg 是 bank 27 BANKED:呼叫即
+ * 切走 0x4000 窗,原指針會讀到 bank 27 垃圾(fight.c:124 同一陷阱)。故比照
+ * show_pf_text 先拷入 pf_msg(WRAM)再送;net 廣播的 memcpy 也才讀得對。 */
+static void show_yakyu_msg(const uint8_t *m, uint8_t n)
+{
+    uint8_t i;
+
+    if (net_flag & 0x80)
+        net_repeat = 2;                 /* 同 show_pf_text:淨戰計數 */
+    for (i = 0; i < n; i++)
+        pf_msg[i] = m[i];
+    pf_msg[n] = 0;
+    pf_msg[n + 1] = 0;
+    pf_show_fight_msg(pf_msg);
+}
+
+static uint8_t yakyu(void)
+{
+    uint8_t obj_gender, tgt_gender, stun;
+
+    set_kf = MENGHU_KF; set_level = 50;
+    if (judge_kf(HAND_KF)) return 1;
+    neili_cost = 334;
+    if (judge_force()) return 1;
+
+    sub_obj_fp();
+    show_yakyu_msg(yakyu_cast_msg, sizeof(yakyu_cast_msg) - 2);
+
+    obj_gender = o8(GENDER_OFF);
+    tgt_gender = y8(GENDER_OFF);
+    stun = (uint8_t)(skill_level / 20);
+
+    if (obj_gender == 2) {
+        if (tgt_gender == 0) {
+            set_you_busy(stun);
+            show_yakyu_msg(yakyu_hit_msg, sizeof(yakyu_hit_msg) - 2);
+        } else {
+            show_yakyu_msg(yakyu_miss_msg, sizeof(yakyu_miss_msg) - 2);
+        }
+    } else {
+        if (tgt_gender == 1) {
+            set_you_busy(stun);
+            show_yakyu_msg(yakyu_hit_msg, sizeof(yakyu_hit_msg) - 2);
+        } else {
+            show_yakyu_msg(yakyu_miss_msg, sizeof(yakyu_miss_msg) - 2);
+        }
+    }
+    return 0;
+}
+
 /* ================= 分派器(hello.s perform) ================= */
 uint8_t perform_dispatch(void) BANKED
 {
@@ -1515,6 +1711,7 @@ uint8_t perform_dispatch(void) BANKED
     case BINGXIN_PF:    return bingxin();
     case LIUCHU_PF:     return liuchu();
     case QINNA_PF:      return shengui();
+    case YAKYU_PF:      return yakyu();
     default:            return 1;
     }
 }

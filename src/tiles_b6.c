@@ -1,5 +1,5 @@
 /* 自動產生:bin2banks.py tiles.bin,勿手改 */
-#pragma bank 15
+#pragma bank 7
 #include <stdint.h>
 
 const uint8_t tiles_b6[16384] = {

@@ -9,7 +9,7 @@
  * 音節分組串接 → 前綴命中=連續音節=連續條目區間,翻頁 O(1) 索引;
  * res_read(HOME)跨 bank 取數,本檔代碼 bank 39。
  * 名字上限 4 漢字(man_name 8 字節,與原版存檔佈局一致)。 */
-#pragma bank 39
+#pragma bank 23
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
@@ -89,6 +89,17 @@ static uint16_t cand_code(uint16_t idx)
     return ((uint16_t)g[0] << 8) | g[1];
 }
 
+/* 游標反白(XOR):畫上/擦掉同一個呼叫 */
+static void cur_invert(uint8_t focus, uint8_t grow, uint8_t gcol,
+                       uint8_t csel)
+{
+    if (focus == 0)
+        ui_invert((uint8_t)(7 + gcol * 12),
+                  (uint8_t)(GRID_Y0 + grow * 14), 10, 13);
+    else
+        ui_invert((uint8_t)(15 + csel * 13), CAND_Y, 13, 13);
+}
+
 static void draw_all(uint8_t focus, uint8_t grow, uint8_t gcol,
                      uint8_t csel)
 {
@@ -119,17 +130,15 @@ static void draw_all(uint8_t focus, uint8_t grow, uint8_t gcol,
     if (base + PAGE_N < cand_hi)
         font_draw_ascii(150, CAND_Y, '>');
 
-    if (focus == 0)
-        ui_invert((uint8_t)(7 + gcol * 12),
-                  (uint8_t)(GRID_Y0 + grow * 14), 10, 13);
-    else
-        ui_invert((uint8_t)(15 + csel * 13), CAND_Y, 13, 13);
+    cur_invert(focus, grow, gcol, csel);
     fb_flush();
 }
 
 uint8_t input_pinyin(void) BANKED
 {
     uint8_t focus = 0, grow = 0, gcol = 0, csel = 0, k, pcnt;
+    uint8_t o_focus = 0, o_grow = 0, o_gcol = 0, o_csel = 0;
+    uint8_t dirty = 1;              /* 1=內容變了要整屏重畫 */
     uint16_t base, n;
 
     nsyl = res_read16(&pinyin_res, 0);
@@ -146,9 +155,22 @@ uint8_t input_pinyin(void) BANKED
             focus = 0;
         if (focus && csel >= pcnt)
             csel = (uint8_t)(pcnt - 1);
-        draw_all(focus, grow, gcol, csel);
+        /* 只挪游標時不重畫 26 個字母格與候選列(整屏重畫實測 13 幀,
+         * 只搬游標 6 幀)。內容真的變了才走 draw_all。 */
+        if (dirty) {
+            draw_all(focus, grow, gcol, csel);
+        } else {
+            cur_invert(o_focus, o_grow, o_gcol, o_csel);    /* 擦舊 */
+            cur_invert(focus, grow, gcol, csel);            /* 畫新 */
+            fb_flush();
+        }
+        o_focus = focus;
+        o_grow = grow;
+        o_gcol = gcol;
+        o_csel = csel;
+        dirty = 0;
 
-        k = wait_key();
+        k = wait_key_rep();
         if (k == K_F1) {                        /* START:取名完成 */
             if (nmlen) {
                 memset(hero.man_name, 0, sizeof hero.man_name);
@@ -156,6 +178,7 @@ uint8_t input_pinyin(void) BANKED
                 return 1;
             }
         } else if (k == K_ESC) {                /* B:逐級回退 */
+            dirty = 1;
             if (pylen) {
                 pylen--;
                 rescan();
@@ -182,6 +205,7 @@ uint8_t input_pinyin(void) BANKED
                 if (pylen < 6) {
                     pybuf[pylen++] = (uint8_t)('a' + grow * 13 + gcol);
                     rescan();
+                    dirty = 1;
                 }
             }
         } else {                                /* 候選列 */
@@ -193,6 +217,7 @@ uint8_t input_pinyin(void) BANKED
                 else if (page) {
                     page--;
                     csel = PAGE_N - 1;
+                    dirty = 1;
                 }
             } else if (k == K_RIGHT) {
                 if ((uint8_t)(csel + 1) < pcnt)
@@ -200,6 +225,7 @@ uint8_t input_pinyin(void) BANKED
                 else if (base + PAGE_N < cand_hi) {
                     page++;
                     csel = 0;
+                    dirty = 1;
                 }
             } else if (k == K_CR) {             /* 選字 */
                 if (nmlen < 8) {
@@ -209,6 +235,7 @@ uint8_t input_pinyin(void) BANKED
                     pylen = 0;
                     rescan();
                     focus = 0;
+                    dirty = 1;
                 }
             }
         }

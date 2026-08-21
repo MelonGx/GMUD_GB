@@ -68,12 +68,17 @@ typedef struct {
 extern hero_save_t hero;    /* WRAM 工作副本(等效原版 save_data 變量區) */
 
 /* GBC 新增設定(用戶要求 2026-07-08),佔用 reserve 區不改存檔佈局:
- * 速度檔(2026-07-17 用戶定版):
- *   0=EXT 全部原版 x1
- *   1=ADV 打坐/練功/學習/婆婆任務顯示 x4、戰鬥顯示 x2,獎勵不加倍
- *   2=BSC 顯示同 ADV,另任務獎勵經驗/潛能 x8(婆婆任務獎勵除外) */
+ *   0=EXT:打坐/練功按原版表值 400ms/tick,學習按表值 250 tick/s
+ *   1=ADV:打坐/練功保留約 x8,學習暫同 EXT;服務/婆婆顯示 x4、
+ *         戰鬥訊息 x2,獎勵不加倍
+ *   2=BSC:速度同 ADV,另任務經驗/潛能 x8(婆婆義工除外)
+ * 原版表值是核准的 x1 規格,不代表已由文曲星實機量得牆鐘時間。
+ * A/B/START 取消及菜單/游標即時反應是刻意保留的 GBC 優化。 */
 #define speed_mode (hero.reserve_buf[0])
-#define disp_shift()   ((speed_mode) ? 2 : 0)       /* 打坐/練功/學習/婆婆顯示 */
+/* Walking only: in ADV/BSC, hold B for x32 movement versus EXT.
+ * Menu/dialog B handling is unchanged. */
+#define disp_shift()   ((speed_mode) ? 2 : 0)       /* 婆婆任務顯示/服務訊息 */
+
 #define fight_shift()  ((speed_mode) ? 1 : 0)       /* 戰鬥訊息等待 */
 #define reward_shift() ((speed_mode == 2) ? 3 : 0)  /* BSC 任務獎勵(婆婆除外) */
 

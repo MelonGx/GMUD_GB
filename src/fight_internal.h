@@ -26,6 +26,8 @@ extern uint8_t perform_flag;        /* 絕招連擊固定動作序號(random_kf_
 uint8_t perform_dispatch(void) BANKED;  /* 依 perform_id 施展;1=失敗 */
 void init_ptemp(void) BANKED;           /* 對局開始清 ptemp */
 void call_out(void) BANKED;             /* 每回合遞減 buff 到期還原 */
+void fenshen_fight_end(void) BANKED;     /* 提前結束:EXT/ADV 還原,BSC 保留 */
+void fenshen_disable_bsc_feature(void) BANKED; /* 離開 BSC 即還原殘留 */
 
 /* ---- nf.c(bank 30,聯機)呼叫的 fight.c 原語(BANKED 跳板)---- */
 uint8_t pf_who_win(void) BANKED;

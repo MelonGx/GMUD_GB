@@ -8,7 +8,7 @@
 #define FONT16_GLYPH_BYTES 32
 #define FONT16_PER_BANK 500
 #define FONT16_BANKS 1
-#define FONT16_FIRST_BANK 5
+#define FONT16_FIRST_BANK 25
 #define FONT16_MISC_BANK 23
 
 extern const uint16_t font16_codes[FONT16_COUNT];

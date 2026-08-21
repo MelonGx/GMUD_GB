@@ -10,7 +10,7 @@
  *
  * 置 bank 25(與 pop_menu 同 bank,處理器可直呼;紓解 HOME bank0 餘裕)。
  */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include "fight.h"
 #include "menu.h"
@@ -45,7 +45,7 @@ const cmenu_t fight_menu =
  * pf_req_kf(=skill.dat pf_attr_tbl 的 bank25 本地副本;gamedata 版在 bank24
  * 需切 bank,此處逐位掃描故留本地):perform_id → 所需 kf_id(掃已啟用的
  * 攻/閃/內功槽,命中即列入)。門檻(judge_kf/judge_force)施展時再驗。 */
-static const uint8_t pf_req_kf[25] = {
+static const uint8_t pf_req_kf[26] = {
     11, 11, 12, 13,             /* daoying×2 / zhangdao×2:八卦刀/掌/阵 */
     17, 18, 20,                 /* luoying / liulang / sanhua */
     23, 25, 25,                 /* feizhi / honglian / leidong */
@@ -53,6 +53,7 @@ static const uint8_t pf_req_kf[25] = {
     30, 30, 30,                 /* chan / lian / taoyue */
     31, 31, 31, 31,             /* ji / luanhuan / yinyang / zhen */
     36, 38, 39,                 /* bingxin / liuchu / shengui */
+    40,                         /* yakyu:猛虎拳(BSC only) */
     0xFF,
 };
 
@@ -71,8 +72,10 @@ static void get_perform_loop(uint8_t usekf_byte)
         return;
     kf_id = usekf_byte & 0x7F;
     for (x = 0; pf_req_kf[x] != 0xFF; x++) {
-        if (pf_req_kf[x] == kf_id)
+        if (pf_req_kf[x] == kf_id) {
+            if (x == 24 && speed_mode != 2) continue; /* 野球拳:BSC only */
             dmenu_buf[1 + pf_count++] = x;
+        }
     }
 }
 

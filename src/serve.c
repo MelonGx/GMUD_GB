@@ -2,7 +2,7 @@
  * heal/jiali)與 pyh.s(pyh_practice/pyh_learn)。演算法與訊息全對照原版。
  * 代碼在 bank 26:tick 經 HOME 包裝(skill.c)或 25 端 BANKED 呼叫;
  * mt_* 訊息只作指針傳給 25 端讀者,模板複製走 mt_tpl_jiali(ui.c)。 */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include <string.h>
 #include "serve.h"
@@ -16,6 +16,30 @@
 #include "fb.h"
 
 /* 等效 lee1.s common:視角=主角 */
+/* 升級門檻 = my_skill³/10(pyh.s cal_exp)。
+ *
+ * 這裡不可以再放「按等級快取」的版本。2026-07-29 加過一個
+ *     static uint8_t need_lvl = 0xFF;
+ *     if (my_skill != need_lvl) { need_lvl = my_skill; need_cache = ...; }
+ * SDCC(sm83)把它編成
+ *     ld hl,#_need_lvl / sub a,(hl) / jr Z,.. / ld (#_need_lvl),a
+ * ——參數 my_skill 是走 A 進來的,sub 把 A 毀了,之後編譯器仍當它是
+ * my_skill 繼續用。於是門檻變成 (my_skill - need_lvl)³/10,而 need_lvl
+ * 存進去的也是那個差值,兩次呼叫之間來回震盪:
+ *     lv=50 → 50-255=51  → 51³/10  = 13265
+ *          → 50-51 =255  → 255³/10 = 1658437
+ * 症狀是作弊改到一百多萬經驗,學習/練功仍每隔一次就報「你的武學經驗
+ * 不足」,再改一次又好了(2026-07-30 用戶回報,tools/exp_need_test.py
+ * 是回歸)。快取本身實測零收益(0.197→0.197 點/幀),直接不要。
+ *
+ * 2026-08-01:learnfast.c(學習快路徑)本來自己抄了一份同樣的算式。那正是
+ * 上面那個 bug 的形狀——門檻有兩份、遲早走岔。改成 BANKED 導出,快路徑
+ * 每批呼叫一次(不是每 tick),跨 bank 成本可忽略。改門檻只准動這裡。 */
+uint32_t exp_need(uint8_t my_skill) BANKED
+{
+    return (uint32_t)my_skill * my_skill * my_skill / 10;
+}
+
 static void common(void)
 {
     obj_flag = 0x80;
@@ -202,7 +226,7 @@ uint8_t pyh_learn(void) BANKED
         goto fail;
     }
 
-    need = (uint32_t)my_skill * my_skill * my_skill / 10;
+    need = exp_need(my_skill);
     if (hero.man_exp < need) {
         msg = mt_exp_msg;
         goto fail;
@@ -292,14 +316,19 @@ uint8_t pyh_practice(void) BANKED
     }
 
     /* 經驗門檻 skill³/10 */
-    need = (uint32_t)my_skill * my_skill * my_skill / 10;
+    need = exp_need(my_skill);
     if (hero.man_exp < need) {
         msg = mt_exp_msg;
         goto fail;
     }
 
-    /* 內力上限門檻 (skill + basic/2)*10 */
-    if (hero.man_maxfp < ((uint16_t)my_skill + master_skill / 2) * 10) {
+    /* 內力上限門檻 (skill + basic/2)*10。原版 pyh.s:110 是 `lda master_skill
+     * / lsr a`,邏輯右移;寫成 `/ 2` 會因整數提升變成「有號除法」,SDCC 產生
+     * sra/rr 再自己證明操作數非負、把負數修正分支砍掉,於是每次編譯都吐
+     * warning 110(EVELYN)。結果是對的,但這個警告的字面意思是「優化器改了
+     * 分支流向」,跟咬過本專案兩次的那類 codegen 問題同形,不該常駐。
+     * 改成 >>1:與原版 lsr 同義、與 /2 在 uint8_t 值域完全等價,警告消失。 */
+    if (hero.man_maxfp < ((uint16_t)my_skill + (master_skill >> 1)) * 10) {
         msg = mt_maxfp_msg;
         goto fail;
     }

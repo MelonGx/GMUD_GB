@@ -9,4 +9,4 @@ static const uint8_t* const chunks[2] = {
     mapblob_b1,
 };
 
-const res_t mapblob_res = { 17, 2, chunks };
+const res_t mapblob_res = { 9, 2, chunks };

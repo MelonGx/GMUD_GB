@@ -38,14 +38,15 @@ void font_set_height(uint8_t h)
     cur = (h == 16) ? &set16 : &set12;
 }
 
-/* 二分查找 GB 碼 → 字模索引(當前字體碼表,在 MISC bank);缺字回傳 0 */
-static uint16_t cjk_index(uint16_t code)
+/* 一级字直算的起點索引:l1_base[0]=set12,[1]=set16;0xFFFF=尚未探測,
+ * 0xFFFE=該碼表沒有完整一级字區(font16 是小碼表),永久走二分。 */
+static uint16_t l1_base[2] = { 0xFFFF, 0xFFFF };
+
+static uint16_t bsearch_code(uint16_t code)
 {
     uint16_t lo = 0, hi = cur->count - 1, mid;
     uint16_t r = 0;
-    uint8_t save = _current_bank;
 
-    SWITCH_ROM(FONT12_MISC_BANK);
     while (lo <= hi) {
         mid = (lo + hi) >> 1;
         if (cur->codes[mid] == code) {
@@ -60,53 +61,105 @@ static uint16_t cjk_index(uint16_t code)
             hi = mid - 1;
         }
     }
+    return r;
+}
+
+/* GB 碼 → 字模索引(當前字體碼表,在 MISC bank);缺字回傳 0
+ *
+ * 攻略整頁 143 個全形字,二分查找 3872 項要 12 探,實測佔整頁 ~10%。
+ * charset12 含全部一级字(B0A1..D7F9),碼表升序 ⇒ 該段在索引空間裡是
+ * 連續的(B0..D6 每列滿 94 字,D7 到 D7F9 共 89 字),可直接算:
+ *     idx = l1_base + (hi-0xB0)*94 + (lo-0xA1)
+ * 算完仍比對 codes[idx] 自我校驗,不合(font16 小碼表/非一级字/缺字)
+ * 才回退二分,所以對任何碼表都安全。 */
+static uint16_t cjk_index(uint16_t code)
+{
+    uint8_t save = _current_bank;
+    uint8_t which = (cur == &set12) ? 0 : 1;
+    uint8_t chi = (uint8_t)(code >> 8);
+    uint8_t clo = (uint8_t)code;
+    uint16_t b, r;
+
+    SWITCH_ROM(FONT12_MISC_BANK);
+    b = l1_base[which];
+    if (b == 0xFFFF) {
+        b = bsearch_code(0xB0A1);
+        if (cur->codes[b] != 0xB0A1)
+            b = 0xFFFE;
+        l1_base[which] = b;
+    }
+    if (b != 0xFFFE && chi >= 0xB0 && chi <= 0xD7 &&
+        clo >= 0xA1 && clo <= 0xFE) {
+        r = b + (uint16_t)(chi - 0xB0) * 94 + (clo - 0xA1);
+        if (r < cur->count && cur->codes[r] == code) {
+            SWITCH_ROM(save);
+            return r;
+        }
+    }
+    r = bsearch_code(code);
     SWITCH_ROM(save);
     return r;
 }
 
-/* 把 16bit 行資料(bit15 最左,寬 w 位)畫進 fb;覆寫模式邊緣位精確 */
+/* 把 16bit 行資料(bit15 最左,寬 w 位)畫進 fb;覆寫模式邊緣位精確
+ *
+ * 內迴圈是全遊戲最熱的一段(攻略整頁 11 行 ≈ 143 個全形字),寫法刻意
+ * 避開 SDCC 的慢路徑:
+ *  - fb 行指標改成迴圈外算一次、每行 += FB_STRIDE,省掉每行一次
+ *    (y+r)*20 的 16 位乘法;
+ *  - 位移全部落在 8 位。原本 row>>(8+shift) / row>>shift 是「16 位變數
+ *    位移」,SDCC 走 __rrushort 輔助函式(帶呼叫開銷、每位 ~16 cy);
+ *    拆成 g0/g1 兩個字節後同樣結果只要 8 位變數位移(djnz 迴圈 ~8 cy/位),
+ *    且 shift==0(x 為 8 的倍數)直接短路不位移;
+ *  - 邊界判斷與遮罩取反在迴圈外算好。
+ * 實測攻略每行 CJK 繪製 2.5 幀 → 1.7 幀。 */
 static void blit_rows(uint8_t x, uint8_t y, const uint8_t *g,
                       uint8_t n, uint8_t w, uint8_t two_bytes)
 {
     uint8_t shift = x & 7;
     uint8_t bx = x >> 3;
-    uint8_t r;
-    uint16_t row;
+    uint8_t rsh = 8 - shift;
+    uint8_t rep = rep_mode;
+    uint8_t ok1 = (uint8_t)(bx + 1) < FB_STRIDE;
+    uint8_t ok2 = (uint8_t)(bx + 2) < FB_STRIDE;
+    uint8_t r, g0, g1;
     uint8_t *p;
     uint8_t d0, d1, d2;
-    uint8_t m0 = 0, m1 = 0, m2 = 0;
+    uint8_t m2 = 0, n0 = 0, n1 = 0, n2 = 0;
 
-    if (rep_mode) {     /* 有效位遮罩:w 位從 shift 起跨 3 字節 */
+    if (rep) {          /* 有效位遮罩:w 位從 shift 起跨 3 字節 */
         uint32_t m = (0xFFFFFFUL << (24 - w)) & 0xFFFFFFUL;
         m >>= shift;
-        m0 = (uint8_t)(m >> 16);
-        m1 = (uint8_t)(m >> 8);
+        n0 = (uint8_t)~(uint8_t)(m >> 16);
+        n1 = (uint8_t)~(uint8_t)(m >> 8);
         m2 = (uint8_t)m;
+        n2 = (uint8_t)~m2;
     }
 
-    for (r = 0; r < n; r++) {
-        if (two_bytes) {
-            row = ((uint16_t)g[0] << 8) | g[1];
-            g += 2;
+    p = &fb[(uint16_t)y * FB_STRIDE + bx];
+    for (r = 0; r < n; r++, p += FB_STRIDE) {
+        g0 = *g++;
+        g1 = two_bytes ? *g++ : 0;
+        if (shift) {
+            d0 = g0 >> shift;
+            d1 = (uint8_t)((uint8_t)(g0 << rsh) | (uint8_t)(g1 >> shift));
+            d2 = (uint8_t)(g1 << rsh);
         } else {
-            row = (uint16_t)*g++ << 8;
+            d0 = g0;
+            d1 = g1;
+            d2 = 0;
         }
-        d0 = (uint8_t)(row >> (8 + shift));
-        d1 = (uint8_t)(row >> shift);
-        d2 = shift ? (uint8_t)((row & 0xFF) << (8 - shift)) : 0;
-
-        p = &fb[(uint16_t)(y + r) * FB_STRIDE + bx];
-        if (rep_mode) {
-            p[0] = (uint8_t)((p[0] & ~m0) | d0);
-            if (bx + 1 < FB_STRIDE)
-                p[1] = (uint8_t)((p[1] & ~m1) | d1);
-            if (m2 && bx + 2 < FB_STRIDE)
-                p[2] = (uint8_t)((p[2] & ~m2) | d2);
+        if (rep) {
+            p[0] = (uint8_t)((p[0] & n0) | d0);
+            if (ok1)
+                p[1] = (uint8_t)((p[1] & n1) | d1);
+            if (m2 && ok2)
+                p[2] = (uint8_t)((p[2] & n2) | d2);
         } else {
             p[0] |= d0;
-            if (bx + 1 < FB_STRIDE)
+            if (ok1)
                 p[1] |= d1;
-            if (bx + 2 < FB_STRIDE)
+            if (d2 && ok2)
                 p[2] |= d2;
         }
     }
@@ -117,16 +170,26 @@ uint8_t font_draw_cjk(uint8_t x, uint8_t y, uint16_t code)
 {
     static uint8_t glyph[32];
     uint16_t idx = cjk_index(code);
-    uint8_t bank_save;
+    uint16_t per = cur->per_bank;
+    uint8_t bank_save = _current_bank;
+    uint8_t b = 0;
 
-    bank_save = _current_bank;
-    SWITCH_ROM(cur->first_bank + idx / cur->per_bank);
-    memcpy(glyph,
-           cur->chunks[idx / cur->per_bank]
-               + (idx % cur->per_bank) * (uint16_t)cur->glyph_bytes,
+    /* idx/per_bank 與 idx%per_bank 本來是兩次 __divuint/__moduint(各數百
+     * 週期);字模最多 7 個 bank,連減一次跑完商和餘數便宜得多。 */
+    while (idx >= per) {
+        idx -= per;
+        b++;
+    }
+    SWITCH_ROM(cur->first_bank + b);
+    memcpy(glyph, cur->chunks[b] + idx * (uint16_t)cur->glyph_bytes,
            cur->glyph_bytes);
     SWITCH_ROM(bank_save);
 
+    /* 攻略公式的瘦上標:3px 點陣+1px 間隔。其餘全形字維持原寬。 */
+    if (cur == &set12 && (code == 0xA2FC || code == 0xA2FD)) {
+        blit_rows(x, y, glyph, cur->cell_h, 4, 1);
+        return 4;
+    }
     blit_rows(x, y, glyph, cur->cell_h, cur->cjk_w, 1);
     return cur->cjk_w;
 }

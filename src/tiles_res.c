@@ -21,4 +21,4 @@ static const uint8_t* const chunks[8] = {
     tiles_b7,
 };
 
-const res_t tiles_res = { 9, 8, chunks };
+const res_t tiles_res = { 1, 8, chunks };

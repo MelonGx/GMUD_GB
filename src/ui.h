@@ -21,12 +21,17 @@
 #define K_F1    7
 
 uint8_t wait_key(void) BANKED;             /* 阻塞取鍵(回推優先) */
+/* 同 wait_key,但方向鍵可按住連發(keyrep.c,HOME)。游標/數值編輯類
+ * 畫面一律用這個;確認訊息框仍用 wait_key。 */
+uint8_t wait_key_rep(void) NONBANKED;
 void    push_key(uint8_t k) BANKED;        /* 等效原版 key|=80h 回推 */
 
 /* 像素級線/反白(y 向自動標髒) */
+extern uint8_t ui_pushed_key;
+
 void ui_hline(uint8_t x0, uint8_t x1, uint8_t y) BANKED;
 void ui_vline(uint8_t x, uint8_t y0, uint8_t y1) BANKED;
-void ui_invert(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
+void ui_invert(uint8_t x, uint8_t y, uint8_t w, uint8_t h) NONBANKED; /* uiinv.c;見該檔 */
 
 void clear_nline2(uint8_t y, uint8_t n) BANKED;    /* 整寬清 n 行(像素) */
 

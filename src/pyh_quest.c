@@ -19,6 +19,8 @@
 #include "blit.h"
 #include "goods.h"
 #include "font.h"
+#include "skill.h"          /* add_kf/find_kf(HOME) — 凌波微步發放 */
+#include "gamedata.h"       /* LINGBO_KF */
 #include "fight.h"          /* final_fight(bank 27 BANKED) */
 #include "panyan.h"         /* 小遊戲(bank 27 BANKED) */
 #include "nf.h"             /* 擂台聯機對戰(bank 30 BANKED) */
@@ -35,6 +37,8 @@
 #define BAODIAN_GOODS 81
 #define KILLER_NPC   125
 #define HANDS_ARM      9
+#define NONE_PAI       0
+#define XIAOYAO_PAI    7
 #define DAODE_NPC     12
 #define BOSS1_NPC    126
 #define GOODMAN      160            /* h/gmud.h 道德閾值 */
@@ -67,12 +71,22 @@ static void show_fmt(const uint8_t *msg)
     fb_flush();
 }
 
-/* 等效 delay_show_text:不等鍵,顯示後停 DELAY_CONST 秒。
- * 義工號子受速度檔縮短(EXT=x1、ADV/BSC=x4,用戶定版 2026-07-17) */
+/* 等效 delay_show_text:不等鍵,顯示後停 DELAY_CONST 次 delay_1_sec。
+ * 義工號子受速度檔縮短(EXT=x1、ADV/BSC=x4,用戶定版 2026-07-17)
+ *
+ * 2026-08-02 校準:原版 pyh_quest.s:171-174 是 `jsr delay_1_sec` × 2,而
+ * system.s:242 的 delay_1_sec 名字叫一秒、實際是 waittime(240)=240/256 s
+ * = 937.5ms。舊值一次算 60 幀(=1.0046s)有兩重誤差:把 240/256 當成 1 秒,
+ * 又把 1 秒當成 60 幀。正確是 240 tick × 1024/4389 = 55.99 → 56 幀。
+ * 一段 2×56=112 幀=1.8755s,五段合計 9.377s,對原版 9.375s 差 +0.02%
+ * (舊值五段 10.046s,慢 7.2%)。 */
+#define DELAY_1SEC_FRAMES 56        /* 原版 delay_1_sec = 240 tick */
+
 static void delay_show(const uint8_t *msg, uint8_t len)
 {
     uint16_t t;
-    uint16_t end = ((uint16_t)DELAY_CONST * 60) >> disp_shift();
+    uint16_t end = ((uint16_t)DELAY_CONST * DELAY_1SEC_FRAMES)
+                   >> disp_shift();
 
     memcpy(OutBuf, msg, len);
     show_talk_msg0();
@@ -222,14 +236,11 @@ static void find_rope(void)
     add_goods(ROPE_GOODS);
 }
 
-/* 等效 baodian(書架):男性+邪派+未成年+戴著老花鏡 → 菜花寶典。
- * yobdc 秘技僅免邪派(道德不限=不必殺人降道德,2026-07-18 用戶
- * 定版:重點是不用幹掉小頑童);男性/未成年/老花鏡照原版 */
 static void baodian(void)
 {
     if (hero.man_gender == 1)
         return;
-    if (!yobdc_mode() && (hero.man_daode & 0x80))
+    if (hero.man_daode & 0x80)
         return;
     if (hero.man_age >= 18)
         return;
@@ -284,6 +295,67 @@ wanted:
 
 /* ================= 遊戲山莊(panyan.s 入口,遊戲本體 bank 27) ========= */
 
+/* ---- 凌波微步(GBC 原創):跳舞毯 LINGBO_SCORE 分獎勵 ----
+ * 原版 panyan.s 的 cal_up_level 是空函式(只有 rts),小遊戲從沒接上武功;
+ * 分招名與閃避訊息見 fight.c lingbo_msg*。本 bank(28)訊息傳給 HOME 的
+ * format_string 安全(bank 28 此刻映射中)。 */
+static const uint8_t pq_lingbo_get_msg[] = {
+    /* 你在毯上踏遍六十四卦 */
+    0xC4,0xE3,0xD4,0xDA,0xCC,0xBA,0xC9,0xCF,
+    0xCC,0xA4,0xB1,0xE9,0xC1,0xF9,0xCA,0xAE,
+    0xCB,0xC4,0xD8,0xD4,
+    0x00,
+    /* 脚下竟自成一套身法 */
+    0xBD,0xC5,0xCF,0xC2,0xBE,0xB9,0xD7,0xD4,
+    0xB3,0xC9,0xD2,0xBB,0xCC,0xD7,0xC9,0xED,
+    0xB7,0xA8,
+    0x00,
+    /* 你叫它凌波微步! */
+    0xC4,0xE3,0xBD,0xD0,0xCB,0xFC,0xC1,0xE8,
+    0xB2,0xA8,0xCE,0xA2,0xB2,0xBD,0x21,
+    0x00,
+    0x00
+};
+static const uint8_t pq_lingbo_pai_msg[] = {
+    /* 你隐约觉出脚下门道 */
+    0xC4,0xE3,0xD2,0xFE,0xD4,0xBC,0xBE,0xF5,
+    0xB3,0xF6,0xBD,0xC5,0xCF,0xC2,0xC3,0xC5,
+    0xB5,0xC0,
+    0x00,
+    /* 可惜本门武学早已入骨 */
+    0xBF,0xC9,0xCF,0xA7,0xB1,0xBE,0xC3,0xC5,
+    0xCE,0xE4,0xD1,0xA7,0xD4,0xE7,0xD2,0xD1,
+    0xC8,0xEB,0xB9,0xC7,
+    0x00,
+    /* 再难改弦更张 */
+    0xD4,0xD9,0xC4,0xD1,0xB8,0xC4,0xCF,0xD2,
+    0xB8,0xFC,0xD5,0xC5,
+    0x00,
+    0x00
+};
+
+static void lingbo_reward(void)
+{
+    uint8_t y;
+
+    if (find_kf(LINGBO_KF) != 0xFF)
+        return;                             /* 已有:不重複給、不出訊息 */
+    if (hero.man_pai != NONE_PAI && hero.man_pai != XIAOYAO_PAI) {
+        format_string(pq_lingbo_pai_msg);   /* 已投他派:不發放 */
+        message_box(6, 3, 6 + 12 * 12, 3 + 12 * 5);
+        return;
+    }
+    kf_id = LINGBO_KF;
+    if (!add_kf())
+        return;                             /* 武功槽已滿(MAX_KF) */
+    y = find_kf(LINGBO_KF);
+    if (y != 0xFF)
+        hero.man_kf[y + 1] = 1;             /* 給 1 級:不留等級 0 條目
+                                             * (見 docs/hidden.md B6) */
+    format_string(pq_lingbo_get_msg);
+    message_box(6, 3, 6 + 12 * 12, 3 + 12 * 5);
+}
+
 /* 等效 do_panyan:hill 確認 → 選路(原版按數字鍵→游標選擇)→ 小遊戲 */
 static void do_panyan(void)
 {
@@ -305,7 +377,7 @@ static void do_panyan(void)
         y = (uint8_t)(30 + cur * 13);
         font_draw_ascii(0, y, '>');
         fb_flush();
-        k = wait_key();
+        k = wait_key_rep();
         fb_fill_rect(0, y, 8, 13, 0);
 
         if (k == K_UP)
@@ -315,8 +387,10 @@ static void do_panyan(void)
         else if (k == K_ESC)
             break;
         else if (k == K_CR) {
-            if (cur == 0)
-                panyan_dance();
+            if (cur == 0) {
+                if (panyan_dance())
+                    lingbo_reward();
+            }
             else if (cur == 1)
                 panyan_ball();
             break;                  /* 3.回去 */

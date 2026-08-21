@@ -12,7 +12,7 @@
  * 絕招 show_perform+perform(Task#3)、物品 show_goods(item 模組)、
  * 連線 net_flag(單機恆 0)。
  */
-#pragma bank 27
+#pragma bank 24
 #include <gb/gb.h>
 #include <string.h>
 #include "fight.h"
@@ -67,6 +67,9 @@
 /* 戰鬥主角姿勢。原版 get_player_img(0)=幀 3(way1=朝左);用戶要求全屏
  * 版改朝右面對敵人 → way2*3+status0 = 幀 6(frame=role_way*3+status)。 */
 #define FIGHT_PLAYER_FRAME 6
+/* 聯機對手圖:對方性別的主角圖,朝左面對本方(way1 幀 3)。原版畫的是
+ * 進戰碰撞物件圖(=聯機台;picid 有傳沒用),用戶定版 2026-07-18 改。 */
+#define FIGHT_OPP_FRAME 3
 
 /* fight 暫存(戰鬥期間 gfx_scratch 空閒,分時複用) */
 #define imgbuf  (gfx_scratch)           /* 對戰圖 192B */
@@ -156,12 +159,99 @@ static void read_action_text(uint16_t desc_off)
     msgbuf[i + 1] = 0;
 }
 
+/* ---- 凌波微步(GBC 原創輕功):閃避描述 ----
+ * 原版輕功的記錄格式是 kf_addr_tbl → 「db N,0 + dw desc × N」,純訊息表,
+ * 無 dmg/force。本招不進原版 textbank(不動 data/kf_data.gb 與
+ * text_addr.s),訊息以 GB2312 陣列內嵌本 bank(27),取用時直接拷進
+ * msgbuf——read_action_text 的輸出目標本就是 msgbuf,故下游一致。
+ * 分招名取自《易經》(潜龙勿用/周流六虚/履霜坚冰/云行雨施)與
+ * 《洛神賦》(罗袜生尘/飘忽若神),對應凌波微步踏卦位的設定。 */
+static const uint8_t lingbo_msg0[] = {
+    /* $n足下暗踏卦位,一招「潜龙勿用」飘然让开 */
+    0x24,0x6E,0xD7,0xE3,0xCF,0xC2,0xB0,0xB5,
+    0xCC,0xA4,0xD8,0xD4,0xCE,0xBB,0x2C,0xD2,
+    0xBB,0xD5,0xD0,0xA1,0xB8,0xC7,0xB1,0xC1,
+    0xFA,0xCE,0xF0,0xD3,0xC3,0xA1,0xB9,0xC6,
+    0xAE,0xC8,0xBB,0xC8,0xC3,0xBF,0xAA,
+    0x00, 0x00
+};
+static const uint8_t lingbo_msg1[] = {
+    /* $n衣袂无风自动,一式「罗袜生尘」已在三尺之外 */
+    0x24,0x6E,0xD2,0xC2,0xF1,0xC7,0xCE,0xDE,
+    0xB7,0xE7,0xD7,0xD4,0xB6,0xAF,0x2C,0xD2,
+    0xBB,0xCA,0xBD,0xA1,0xB8,0xC2,0xDE,0xCD,
+    0xE0,0xC9,0xFA,0xB3,0xBE,0xA1,0xB9,0xD2,
+    0xD1,0xD4,0xDA,0xC8,0xFD,0xB3,0xDF,0xD6,
+    0xAE,0xCD,0xE2,
+    0x00, 0x00
+};
+static const uint8_t lingbo_msg2[] = {
+    /* 只见$n身随卦转,「周流六虚」堪堪避过$N这一招 */
+    0xD6,0xBB,0xBC,0xFB,0x24,0x6E,0xC9,0xED,
+    0xCB,0xE6,0xD8,0xD4,0xD7,0xAA,0x2C,0xA1,
+    0xB8,0xD6,0xDC,0xC1,0xF7,0xC1,0xF9,0xD0,
+    0xE9,0xA1,0xB9,0xBF,0xB0,0xBF,0xB0,0xB1,
+    0xDC,0xB9,0xFD,0x24,0x4E,0xD5,0xE2,0xD2,
+    0xBB,0xD5,0xD0,
+    0x00, 0x00
+};
+static const uint8_t lingbo_msg3[] = {
+    /* $n步履轻缓,一招「履霜坚冰」教$N扑了个空 */
+    0x24,0x6E,0xB2,0xBD,0xC2,0xC4,0xC7,0xE1,
+    0xBB,0xBA,0x2C,0xD2,0xBB,0xD5,0xD0,0xA1,
+    0xB8,0xC2,0xC4,0xCB,0xAA,0xBC,0xE1,0xB1,
+    0xF9,0xA1,0xB9,0xBD,0xCC,0x24,0x4E,0xC6,
+    0xCB,0xC1,0xCB,0xB8,0xF6,0xBF,0xD5,
+    0x00, 0x00
+};
+static const uint8_t lingbo_msg4[] = {
+    /* $n一式「飘忽若神」,不见迈步却已闪在一旁 */
+    0x24,0x6E,0xD2,0xBB,0xCA,0xBD,0xA1,0xB8,
+    0xC6,0xAE,0xBA,0xF6,0xC8,0xF4,0xC9,0xF1,
+    0xA1,0xB9,0x2C,0xB2,0xBB,0xBC,0xFB,0xC2,
+    0xF5,0xB2,0xBD,0xC8,0xB4,0xD2,0xD1,0xC9,
+    0xC1,0xD4,0xDA,0xD2,0xBB,0xC5,0xD4,
+    0x00, 0x00
+};
+static const uint8_t lingbo_msg5[] = {
+    /* $n身形如烟似雾,使出「云行雨施」绕到$N身后 */
+    0x24,0x6E,0xC9,0xED,0xD0,0xCE,0xC8,0xE7,
+    0xD1,0xCC,0xCB,0xC6,0xCE,0xED,0x2C,0xCA,
+    0xB9,0xB3,0xF6,0xA1,0xB8,0xD4,0xC6,0xD0,
+    0xD0,0xD3,0xEA,0xCA,0xA9,0xA1,0xB9,0xC8,
+    0xC6,0xB5,0xBD,0x24,0x4E,0xC9,0xED,0xBA,
+    0xF3,
+    0x00, 0x00
+};
+static const uint8_t *const lingbo_msgs[6] = {
+    lingbo_msg0, lingbo_msg1, lingbo_msg2,
+    lingbo_msg3, lingbo_msg4, lingbo_msg5,
+};
+
+static void lingbo_action(void)
+{
+    const uint8_t *m = lingbo_msgs[(uint8_t)random_it(6)];
+    uint8_t i;
+
+    for (i = 0; i < 94 && m[i]; i++)
+        msgbuf[i] = m[i];
+    msgbuf[i] = 0;
+    msgbuf[i + 1] = 0;                           /* 同 read_action_text 雙 0 */
+}
+
 static void random_kf_action(uint8_t is_man)
 {
-    uint16_t rec = text_get_ptr(TC_KF, kf_id);   /* 記錄址(textbank) */
-    uint8_t num = tb8(rec);
+    uint16_t rec;
+    uint8_t num;
     uint8_t r;
     uint16_t desc;
+
+    if (kf_id == LINGBO_KF) {   /* 不在 textbank,查表會讀到 kf_addr_tbl 外 */
+        lingbo_action();
+        return;
+    }
+    rec = text_get_ptr(TC_KF, kf_id);            /* 記錄址(textbank) */
+    num = tb8(rec);
 
     get_kf_attr(kf_id);
     if (kf_attr[0] == DODGE_KF) {                /* is_dodge_msg:stride 2 */
@@ -583,10 +673,16 @@ static void write_fight(void)
     show_line(MAN_FP_X0, MAN_FP_Y0, hero.man_fp, hero.man_maxfp, 39);
     show_digit(MAN_FP_X0 + 40, MAN_FP_Y0, hero.man_fp, hero.man_maxfp);
 
-    /* NPC 圖 + 血/氣條(無圖示/數字) */
-    if (located_id == KILLER_NPC)
-        item_id = 474;
-    tile_fetch(item_id, imgbuf);
+    /* NPC 圖 + 血/氣條(無圖示/數字);聯機畫對方主角圖(located_id=
+     * 對方性別,nf.c trans_npc) */
+    if (net_flag & 0x80) {
+        res_read((located_id == 1) ? &player_girl_res : &player_res,
+                 (uint16_t)FIGHT_OPP_FRAME * 192, imgbuf, 192);
+    } else {
+        if (located_id == KILLER_NPC)           /* 女通緝犯 466(fight.s:1386) */
+            item_id = ghost_gender_bak ? 466 : 474;
+        tile_fetch(item_id, imgbuf);
+    }
     lee_block(NPC_X0, NPC_Y0, imgbuf, 4, 32, LCMD_PRINT);
     show_line(NPC_HP_X0, NPC_HP_Y0, npc.npc_hp, npc.npc_maxhp, 39);
     show_line(NPC_FP_X0, NPC_FP_Y0, npc.npc_fp, npc.npc_maxfp, 39);
@@ -642,7 +738,11 @@ void attack_npc(void)
     kf_type = DODGE_KF;
     dp = skill_power(0, 1, npc_kf_dp);
     npc_kf_dp = 0;
-    dp = point_adjust(dp, npc.npc_int);
+    /* 原版 fight.s 閃避調整屬性左右不一致(此側 npc_int,對側 man_con)、
+     * 均非命中 ap 所用的 dex——判定為原始 bug(setup_attr 明訂
+     * BASIC_DODGE_KF 餵給 dex,理應是 dex)。ADV/EXT 修正為 dex;
+     * BSC 依用戶定案保留原版行為,見 docs/hidden.md #14。 */
+    dp = point_adjust(dp, (speed_mode != 2) ? npc.npc_dex : npc.npc_int);
     if (npc.npc_busy)
         dp /= 3;
     dodge_point = dp;
@@ -725,7 +825,8 @@ void attack_man(void)
     kf_type = DODGE_KF;
     dp = skill_power(1, 1, man_kf_dp);
     man_kf_dp = 0;
-    dp = point_adjust(dp, hero.man_con);
+    /* 原版 bug,同上一處對稱說明:ADV/EXT 修正為 dex,BSC 保留 con。 */
+    dp = point_adjust(dp, (speed_mode != 2) ? hero.man_dex : hero.man_con);
     if (hero.man_busy)
         dp /= 3;
     dodge_point = dp;
@@ -992,10 +1093,17 @@ uint8_t fight_perform_action(void) BANKED
         return 2;
     if (net_flag & 0x80) {                       /* fight.s:201 net_perform:
                                                   * 補發「絕招完」包後交棒 */
+        /* 聯機絕招原本提早 return，漏掉每回合一次的 buff 倒數。
+         * 到期訊息要在 completion 包前送，最後一包再明確歸零交棒。 */
+        call_out();
+        if (nf_over || combat_over)
+            return 2;
         net_perform_flag |= 0x80;
+        net_repeat = 1;
         memcpy(NET_PKT_MSG, msgbuf, 100);        /* 原版 string_ptr 殘值,
                                                   * 對方不顯示(perform 旗) */
-        net_send_data();
+        if (net_send_data())
+            return 2;
         if (who_win())
             combat_over = 1;
         return 2;
@@ -1032,20 +1140,17 @@ uint8_t fight_goods(void) BANKED
 uint8_t fight_escape(void) BANKED
 {
     combat_over = 0;
-    if (net_flag & 0x80) {                       /* fight.s:230:先告知對方
-                                                  * 退出(quit 旗包) */
-        net_quit_flag |= 0x80;
-        memcpy(NET_PKT_MSG, msgbuf, 100);        /* 殘值;對方見 quit 即退 */
-        if (net_send_data())
-            return 2;                            /* 傳輸失敗:已置結束旗 */
-    }
     if (npc.npc_pai == BOSS_PAI)
         return 0;                                /* 不可逃 BOSS */
     obj_flag = 0x80;
     if (if_escape()) {                           /* 逃脫成功 */
         fight_exit_code = 2;
-        if (net_flag & 0x80) {                   /* 原版 fail_quit 淨路徑:
-                                                  * 無「哪里逃」對白 */
+        if (net_flag & 0x80) {
+            net_repeat = 1;
+            net_quit_flag |= 0x80;
+            memset(NET_PKT_MSG, 0, 100);
+            if (net_send_data())
+                return 2;
             nf_over = 1;
             return 2;
         }
@@ -1054,8 +1159,12 @@ uint8_t fight_escape(void) BANKED
         wait_cr();
         return 2;
     }
-    show_fight_msg(escape_msg);                        /* 逃跑失敗訊息 */
-    attack_man();                                 /* NPC 追打一擊 */
+    if (net_flag & 0x80)
+        net_repeat = 1;
+    show_fight_msg(escape_msg);                   /* 逃跑失敗訊息 */
+    if (net_flag & 0x80)
+        return 2;                                 /* 聯機由真人對手的回合反擊 */
+    attack_man();                                 /* 單機 NPC 追打一擊 */
     if (combat_over)
         return 2;
     refresh_fight();
@@ -1082,11 +1191,10 @@ void fight(void) BANKED
     ss_ptr = OutBuf;
     show_one_line(13, 8);
     fb_flush();
-    {
-        uint8_t t;
-        for (t = 0; t < 45; t++)
-            vsync();
-    }
+    /* 原版 fight.s:124-132 畫完 "ＶＳ" 就 lcd_to_scroll,接著直接擲首攻,
+     * 一個 waittime 都沒有——VS 只是被後續繪製擋住的那一瞬。這裡本來硬等
+     * 45 幀(0.753s),是移植端自己加的(2026-08-02 移除)。移除後 VS 仍會
+     * 停留 fb_flush 加下一次 refresh_fight 的十幾幀,與原版同構。 */
 
     /* 首回合隨機:半數機率 NPC 先攻 */
     if (random_it(2) == 0) {
@@ -1094,6 +1202,7 @@ void fight(void) BANKED
         combat_over = 0;
         attack_man();
         if (combat_over) {
+            fenshen_fight_end();
             busy_flag &= 0x7F;
             return;
         }
@@ -1107,6 +1216,7 @@ void fight(void) BANKED
             break;
         /* 0xFF(ESC)不退出戰鬥,重開選單 */
     }
+    fenshen_fight_end();
     clear_nline2(80, FB_ROWS - 80);              /* 清完整擴展帶殘留 */
     fb_flush();
     busy_flag &= 0x7F;

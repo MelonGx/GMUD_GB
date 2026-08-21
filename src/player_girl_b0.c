@@ -1,5 +1,5 @@
 /* 自動產生:bin2banks.py player_girl.bin,勿手改 */
-#pragma bank 19
+#pragma bank 11
 #include <stdint.h>
 
 const uint8_t player_girl_b0[4608] = {

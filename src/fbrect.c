@@ -2,7 +2,7 @@
  *
  * 像素精確:首尾字節只動 [x,x+w) 覆蓋的位。字節粒度會把同字節內的
  * 鄰接像素一併抹掉(建角姓名清單游標擦除啃掉名字左緣,2026-07-10)。 */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include <stdint.h>
 #include "fb.h"

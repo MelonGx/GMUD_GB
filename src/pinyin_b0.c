@@ -1,5 +1,5 @@
 /* 自動產生:bin2banks.py pinyin.bin,勿手改 */
-#pragma bank 38
+#pragma bank 15
 #include <stdint.h>
 
 const uint8_t pinyin_b0[13658] = {

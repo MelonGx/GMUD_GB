@@ -1,7 +1,7 @@
 /* 自動產生:gen_menutext.py(原版 .s UI 文本,GB2312),勿手改
  * 資料在 bank 25:僅供同 bank 的 UI 模組(或其掛靠的 HOME 處理器
  * 在選單會話期間)直接讀取;HOME 端切 bank 的助手不得引用 */
-#pragma bank 25
+#pragma bank 26
 #include <stdint.h>
 #include "menutext.h"
 #include "save.h"

@@ -1,5 +1,5 @@
 /* 自動產生:bin2banks.py textbank.bin,勿手改 */
-#pragma bank 20
+#pragma bank 12
 #include <stdint.h>
 
 const uint8_t textbank_b0[16384] = {

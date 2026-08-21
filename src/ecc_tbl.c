@@ -1,6 +1,6 @@
 /* 自動產生:gen_ecc.py,提取自原版 save.s 的 ecc_tbl,勿手改
  * 資料在 bank 25(僅 save.c 同 bank 讀取) */
-#pragma bank 26
+#pragma bank 27
 #include <stdint.h>
 
 const uint8_t ecc_tbl[256] = {

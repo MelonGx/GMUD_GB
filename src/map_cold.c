@@ -1,7 +1,7 @@
 /* map_cold.c - 換圖冷路徑(tools.s init_map/change_map/adjust_pos/
  * message_loop),自 map.c 遷出騰 HOME 空間;代碼在 bank 26。
  * 呼叫端 walk.c(bank25)經 BANKED 入口。 */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include "game.h"
 #include "res.h"

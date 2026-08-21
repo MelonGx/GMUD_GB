@@ -1,5 +1,5 @@
 /* 代碼在 bank 25(呼叫端 HOME/25;fastops 留 HOME) */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include <string.h>
 #include "blit.h"

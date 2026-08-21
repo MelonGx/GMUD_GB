@@ -26,15 +26,26 @@
 #include "gamedata.h"
 #include "theme_data.h"
 #include "input_py.h"
+#include "guide.h"
 
 #define SAVE_INTERVAL 300
 
 /* ---- UI 文本(GB2312) ---- */
 static const uint8_t s_gmud[]  = "GMUD";
 static const uint8_t s_title[] = "\xD3\xA2\xD0\xDB\xCC\xB3\xCB\xB5";    /* 英雄坛说 */
+/* 標題畫面底部出處(2026-08-02 用戶要求):移植自文曲星NC2000版源码。
+ * 9 個全形 ×12px + 6 個半形 ×6px = 144px,置中 x=8;12px 行高 13,
+ * 放 y=120(佔 120..132,離 fb 底 143 留 11 列,底部要留白感)——選單最末項在 y=80,
+ * 不相碰。分成三段字面量拼接,免得 \xC7 後面接 'N' 之類被當成貪心的
+ * 十六進位轉義。 */
+static const uint8_t s_from[] =
+    "\xD2\xC6\xD6\xB2\xD7\xD4\xCE\xC4\xC7\xFA\xD0\xC7"  /* 移植自文曲星 */
+    "NC2000"
+    "\xB0\xE6\xD4\xB4\xC2\xEB";                          /* 版源码 */
 static const uint8_t s_cont[] = "\xBC\xCC\xD0\xF8\xD3\xCE\xCF\xB7";     /* 继续游戏 */
 static const uint8_t s_restart[] = "\xD6\xD8\xD0\xC2\xBF\xAA\xCA\xBC";  /* 重新开始 */
 static const uint8_t s_start[] = "\xBF\xAA\xCA\xBC\xD3\xCE\xCF\xB7";    /* 开始游戏 */
+static const uint8_t s_guide[] = "\xD3\xCE\xCF\xB7\xB9\xA5\xC2\xD4";    /* 游戏攻略 */
 static const uint8_t s_slot1[] = "\xB4\xE6\xB5\xB5\xD2\xBB\x20";        /* 存档一 */
 static const uint8_t s_slot2[] = "\xB4\xE6\xB5\xB5\xB6\xFE\x20";        /* 存档二 */
 static const uint8_t s_empty[] = "\x28\xBF\xD5\x29";                    /* (空) */
@@ -213,7 +224,7 @@ void scroll_text_28(const uint8_t *txt, uint8_t total, uint8_t skippable)
             fb_mark_dirty(0, 144);
             fb_flush();
             vsync();
-            vsync();            /* ≈3 幀/px ≈ 原版 DELAY_TIME 節奏 */
+            vsync();            /* 含全屏刷新實測約 5.18 幀/px,快於原版 */
             if (skippable && joypad())
                 goto skip;
         }
@@ -247,7 +258,7 @@ static uint8_t name_ui(void)
             x = (cur < 5) ? 12 : 84;
             y = (uint8_t)(16 + (cur % 5) * 13);
             cursor_show(x, y);
-            k = wait_key();
+            k = wait_key_rep();
             cursor_hide(x, y);
 
             if (k == K_UP) {
@@ -298,7 +309,7 @@ static uint8_t name_ui(void)
                 y = (uint8_t)(24 + row * 14);
                 ui_invert(x, y, 10, 13);
                 fb_flush();
-                k = wait_key();
+                k = wait_key_rep();
                 ui_invert(x, y, 10, 13);
 
                 if (k == K_UP)
@@ -356,7 +367,7 @@ static uint8_t adjust_attr(void)
 
     for (;;) {
         cursor_show(12, (uint8_t)(9 + ptr * 15));
-        k = wait_key();
+        k = wait_key_rep();
         cursor_hide(12, (uint8_t)(9 + ptr * 15));
 
         if (k == K_UP) {                    /* 原版 1..4 迴繞 */
@@ -481,25 +492,35 @@ static uint8_t title_screen(void)
         font_draw_text(32, 14, s_gmud);
         font_draw_text(64, 14, s_title);
         font_set_height(12);
+        font_draw_text(8, 120, s_from);
         if (any) {
             font_draw_text(56, 52, s_cont);
             font_draw_text(56, 66, s_restart);
-            n = 2;
+            font_draw_text(56, 80, s_guide);
+            n = 3;
         } else {
-            font_draw_text(56, 58, s_start);
-            n = 1;
+            font_draw_text(56, 52, s_start);
+            font_draw_text(56, 66, s_guide);
+            n = 2;
         }
 
         cur = 0;
         for (;;) {
-            y = any ? (cur ? 66 : 52) : 58;
+            y = (uint8_t)(52 + cur * 14);
             cursor_show(46, y);
             k = wait_key();
             cursor_hide(46, y);
-            if ((k == K_UP || k == K_DOWN) && n == 2)
-                cur ^= 1;
+            if (k == K_UP && cur > 0)
+                cur--;
+            else if (k == K_DOWN && cur < n - 1)
+                cur++;
             else if (k == K_CR)
                 break;
+        }
+
+        if (cur == n - 1) {                /* 攻略 */
+            guide_viewer();
+            continue;
         }
 
         if (any && cur == 0) {              /* 繼續 */
@@ -553,10 +574,6 @@ void game_boot(void) BANKED
             continue;
         set_attr();
         clear_apply();
-        if (yobdc_mode()) {             /* 官方秘技(task.h 說明) */
-            hero.man_exp = 999999UL;
-            hero.man_pot = 0xFFFF;      /* 潛能欄原版佈局 16 位,拉滿 */
-        }
         memcpy(npc_stat_buf, hero.npc_stat_buf, 32);
         task_bind_new();        /* 任務工作區清零並綁定本 slot */
         save_store();
@@ -573,6 +590,36 @@ void game_boot(void) BANKED
     fb_clear();
     fb_flush();
     heart_beat_reset();         /* 遊戲時鐘錨定(等效 timetick 初始化) */
+}
+
+/* 等效 setup_maxhp:年齡 + 精血上限(名帶 _cmd 避開字段名;
+ * 自 game.c 遷入省 bank 25 空間) */
+#define AGE_TIME (3600UL * 12)
+
+void setup_maxhp_cmd(void) BANKED
+{
+    uint8_t age, y;
+    uint16_t v;
+
+    hero.man_age = (uint8_t)(hero.mud_age / AGE_TIME) + 14;
+
+    age = hero.man_age;
+    if (age < 14)
+        age = 14;
+    if (age > 29)
+        age = 29;
+    v = 100 + (uint16_t)(age - 14) * 20;
+    v += hero.man_maxfp >> 2;
+    hero.man_maxhp = v;
+
+    if (hero.man_age < 20)
+        return;
+    y = find_kf(JIAOYI_KF);
+    if (y == 0xFF)
+        return;
+    if (hero.man_kf[y + 1] < 80)
+        return;
+    hero.man_maxhp += (uint16_t)hero.man_kf[y + 1] * hero.attr_con / 10;
 }
 
 /* ================= DMG 保護畫面 ================= */

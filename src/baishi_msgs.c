@@ -1,6 +1,6 @@
 /* 自動產生:gen_menutext.py(原版 serve.s 拜師訊息),勿手改
  * 資料在 bank 26:僅 baishi.c 同 bank 讀,經 tplbuf 拷出使用 */
-#pragma bank 26
+#pragma bank 27
 #include <stdint.h>
 #include "baishi_msgs.h"
 

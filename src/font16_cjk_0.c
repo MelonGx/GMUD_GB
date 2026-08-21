@@ -1,5 +1,5 @@
 /* 自動產生:build_font.py,勿手改 */
-#pragma bank 5
+#pragma bank 25
 #include <stdint.h>
 
 const uint8_t font16_cjk_0[] = {

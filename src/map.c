@@ -178,7 +178,7 @@ void make_ground(void)
 }
 
 /* ================= 增量捲動合成(行走平滑化,用戶要求) =================
- * 行走一子步=視圖平移 8px(或主角原地移動):
+ * 行走一子步=視圖平移 8px/16px(或主角原地移動):
  *   ① 復原主角底圖快照(scroll_buf 回純背景)
  *   ② 整塊平移緩衝 + 只重合成新露出的 8px 條帶
  *   ③ 存新位底圖快照 → 貼主角
@@ -293,7 +293,6 @@ static void compose_screen_rect(int16_t x0, int16_t y0,
         for (j = j0; j <= j1; j++)
             compose_cell(j, i);
 }
-
 /* tools.s main_move/show_player:背景+主角(遮罩 AND、圖 OR)+圖名 */
 void show_player(void)
 {

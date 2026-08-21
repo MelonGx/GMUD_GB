@@ -7,4 +7,4 @@ static const uint8_t* const chunks[1] = {
     pinyin_b0,
 };
 
-const res_t pinyin_res = { 38, 1, chunks };
+const res_t pinyin_res = { 15, 1, chunks };

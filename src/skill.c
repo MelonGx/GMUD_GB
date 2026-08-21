@@ -20,6 +20,8 @@
 #include "fb.h"
 #include "blit.h"
 #include "serve.h"
+#include "menu_input.h"
+#include "process_input.h"
 
 /* fight_off 偏移(h/id.h,man_state/npc_state 同構前 41 字節) */
 #define DAMAGE_OFF 16
@@ -240,7 +242,11 @@ void get_skill_desc(void)
     a8 = (a8 + skill_level) >> 1;
 
     v = (a9 + a8) / 3 / 5;
-    gd_copy(skill_desc_buf, skill_level_desc + (v << 3), 8);
+    if (v >= SKILL_LEVEL_DESC_COUNT)
+        v = SKILL_LEVEL_DESC_COUNT - 1;
+    gd_copy(skill_desc_buf,
+            skill_level_desc + v * SKILL_LEVEL_DESC_STRIDE,
+            SKILL_LEVEL_DESC_STRIDE);
 
     v = obj_read(STR_OFF);
     v += obj_read(DAMAGE_OFF);
@@ -288,12 +294,14 @@ uint8_t improve_skill(uint16_t gain)
 
     if (y == 0xFF)
         return 0;
+    lv = hero.man_kf[y + 1];
+    if (lv == 0xFF)
+        return 0;                       /* 滿級:潛能與等級都保持不變 */
     pot = (uint16_t)hero.man_kf[y + 2] | ((uint16_t)hero.man_kf[y + 3] << 8);
     pot += gain;
     hero.man_kf[y + 2] = (uint8_t)pot;
     hero.man_kf[y + 3] = (uint8_t)(pot >> 8);
 
-    lv = hero.man_kf[y + 1];
     if (pot < (uint16_t)(lv + 1) * (lv + 1))
         return 0;
     hero.man_kf[y + 1] = lv + 1;
@@ -361,10 +369,28 @@ static void if_parry(void)
     dmenu_buf[0] = n;
 }
 
+/* 一行 GB2312/ASCII 混排佔幾個半形格(全形 2 格,半形 1 格),
+ * 語義與 show_one_line_to 的推進一致;遇 0/0xFF 行終止。 */
+static uint8_t line_cells(const uint8_t *s)
+{
+    uint8_t n = 0;
+
+    while (*s && *s != 0xFF) {
+        if (*s & 0x80) {
+            s += 2;
+            n += 2;
+        } else {
+            s++;
+            n += 1;
+        }
+    }
+    return n;
+}
+
 /* 等效 skill.s skill_desc + show_desc:底部一行「等級描述 等級/潛能」 */
 static void skill_show_desc(void)
 {
-    uint8_t y, lv;
+    uint8_t y, lv, cells;
     uint16_t v;
     uint8_t *tpl = gfx_scratch + 192;
 
@@ -373,9 +399,11 @@ static void skill_show_desc(void)
     y = find_kf(kf_id);
     lv = (y != 0xFF) ? hero.man_kf[y + 1] : 0;
     v = lv / 5;
-    if (v >= 50)
-        v = 49;
-    gd_copy(skill_desc_buf, skill_level_desc + (v << 3), 8);
+    if (v > SKILL_LEVEL_SINGLE_MAX)
+        v = SKILL_LEVEL_SINGLE_MAX;
+    gd_copy(skill_desc_buf,
+            skill_level_desc + v * SKILL_LEVEL_DESC_STRIDE,
+            SKILL_LEVEL_DESC_STRIDE);
 
     varbuf[0] = (uint8_t)(uint16_t)skill_desc_buf;
     varbuf[1] = (uint8_t)((uint16_t)skill_desc_buf >> 8);
@@ -398,7 +426,11 @@ static void skill_show_desc(void)
 
     clear_nline2(FB_ROWS - 14, 14);
     ss_ptr = OutBuf;
-    show_one_line(8, FB_ROWS - 13);
+    /* 原版 show_desc 是 `ldx #8` 固定左緣(x=48px),描述字數短時整行明顯
+     * 偏右;2026-07-29 用戶要求改居中。行寬 26 格,對齊粒度 6px。 */
+    cells = line_cells(OutBuf);
+    show_one_line((cells < 26) ? (uint8_t)((26 - cells) >> 1) : 0,
+                  FB_ROWS - 13);
     fb_flush();
 }
 
@@ -507,6 +539,76 @@ uint8_t show_skills(void)
     return 0;
 }
 
+/* 打坐/練功的 effect tick。原版兩張表都是 dw 400 = 400ms/tick。
+ * EXT 用真實 GBC 幀時基排 23/24 幀 deadline；等待逐幀取鍵，畫面重畫
+ * 與固定 interval 都算在 400ms 內。ADV/BSC 保留原有 4 tick/輪、約
+ * 50ms/tick 的 x8 節奏。effect 邏輯、RNG 與停止條件不變。 */
+#define PROC_INTERVAL  6
+#define PROC_FAST_BATCH 4
+#define PROC_EXT_DEN    21945u
+#define PROC_EXT_REM    19553u
+
+static uint16_t proc_deadline, proc_phase;
+
+static uint8_t proc_ext_frames(void)
+{
+    uint8_t frames = 23;
+
+    proc_phase += PROC_EXT_REM;
+    if (proc_phase >= PROC_EXT_DEN) {
+        proc_phase -= PROC_EXT_DEN;
+        frames++;
+    }
+    return frames;
+}
+
+static void proc_begin(void)
+{
+    menu_input_begin();                 /* 等選單 A 放開並開 VBlank 鎖存 */
+    if (!speed_mode) {
+        proc_phase = 0;
+        proc_deadline = sys_time + proc_ext_frames();
+    }
+}
+
+static uint8_t proc_wait(void)
+{
+    uint8_t j;
+
+    if (process_take_cancel()) {
+        waitpadup();
+        return 1;
+    }
+    if (speed_mode)
+        return 0;
+    while ((int16_t)(sys_time - proc_deadline) < 0) {
+        vsync();
+        heart_beat();
+        j = joypad();
+        if (process_take_cancel() || (j & (J_A | J_B | J_START))) {
+            waitpadup();
+            return 1;
+        }
+    }
+    if (process_take_cancel() || (joypad() & (J_A | J_B | J_START))) {
+        waitpadup();
+        return 1;
+    }
+    /* 從現在重錨；阻塞訊息返回後最多立即執行一次，不補跑整段時間。 */
+    proc_deadline = sys_time + proc_ext_frames();
+    return 0;
+}
+
+static uint8_t proc_interval(void)
+{
+    return PROC_INTERVAL;
+}
+
+static uint8_t proc_batch(void)
+{
+    return speed_mode ? PROC_FAST_BATCH : 1;
+}
+
 /* ---- 練功(等效 practice_cmd/practice_it,進度 tick=pyh_practice) ---- */
 static void pra_set_line(void)
 {
@@ -528,21 +630,26 @@ static void pra_set_digit(void)
 
 static uint8_t pra_tick(void)               /* HOME 包裝:跨 bank tick */
 {
-    return pyh_practice();
-}
+    uint8_t n;
 
-/* 進度間隔:原版 400ms≈24 幀;速度檔 EXT=x1、ADV/BSC=x4 → 24/6 */
-static uint8_t proc_interval(void)
-{
-    return 24 >> disp_shift();
+    if (proc_wait())
+        return 1;
+    n = proc_batch();
+    do {
+        if (pyh_practice())
+            return 1;
+    } while (--n);
+    return 0;
 }
 
 static uint8_t practice_it(void)
 {
     kf_id = dmenu_buf[1 + menu_set] & 0x7F;
+    proc_begin();
     busy_flag |= 0x80;                      /* 練功中不回復(skill.s) */
     show_process(32, 1, pra_set_line, pra_set_digit, proc_interval(),
                  pra_tick);
+    menu_input_end();
     busy_flag &= 0x7F;
     scroll_to_lcd();
     fb_flush();
@@ -590,14 +697,25 @@ static void dz_set_digit(void)
 
 static uint8_t dz_tick(void)                /* HOME 包裝:跨 bank tick */
 {
-    return dazuo();
+    uint8_t n;
+
+    if (proc_wait())
+        return 1;
+    n = proc_batch();
+    do {
+        if (dazuo())
+            return 1;
+    } while (--n);
+    return 0;
 }
 
 uint8_t dazuo_cmd(void)
 {
+    proc_begin();
     busy_flag |= 0x80;                      /* 打坐中不回復(skill.s) */
     show_process(32, 1, dz_set_line, dz_set_digit, proc_interval(),
                  dz_tick);
+    menu_input_end();
     busy_flag &= 0x7F;
     scroll_to_lcd();
     fb_flush();

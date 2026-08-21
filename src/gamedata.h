@@ -6,8 +6,8 @@
 #define GAMEDATA_BANK 24
 
 #define GOODS_NUM 82
-#define KF_NUM 42
-#define PF_NUM 24
+#define KF_NUM 43
+#define PF_NUM 25
 #define BASIC_KF_NUM 9
 #define NONE_PAI_KF 11
 
@@ -58,6 +58,10 @@
 #define CLOTH_GOODS 42
 #define JIAOYI_KF 22
 
+/* GBC 原創輕功:凌波微步(跳舞毯 573 分,無派/逍遙派限定)。
+ * 閃避訊息不在 textbank,見 fight.c random_kf_action。 */
+#define LINGBO_KF 42
+
 /* 拜師 NPC(serve.s bashi_npc_tbl 序)與門派武功 */
 #define JIANMING_NPC 44
 #define BAOZHEN_NPC 39
@@ -90,18 +94,22 @@
 /* 名字表:0xFF 結尾條目按 id 連續排列(= 原版 find_name 佈局);
  * pai 表 0 結尾(npc.s 原樣) */
 extern const uint8_t goods_name_tbl[558];
-extern const uint8_t kf_name_tbl[382];
-extern const uint8_t pf_name_tbl[208];
+extern const uint8_t kf_name_tbl[391];
+extern const uint8_t pf_name_tbl[215];
 extern const uint8_t pai_name_tbl[60];
 
 /* attr 表:goods 8B/條(BOOK 條目字節[2]=書表索引,原版為 RAM 指針);
  * kf 2B/條;pf = perform→kf 映射 + 0xFF 哨兵 */
 extern const uint8_t goods_attr_tbl[656];
-extern const uint8_t kf_attr_tbl[84];
-extern const uint8_t pf_attr_tbl[25];
+extern const uint8_t kf_attr_tbl[86];
+extern const uint8_t pf_attr_tbl[26];
 
-/* 武功等級/出手描述(skill.s):8B(4字)×50、4B(2字)×6,無結尾符 */
-extern const uint8_t skill_level_desc[400];
+/* 武功等級/出手描述:8B(4字)×51、4B(2字)×6,無結尾符;
+ * 等級表前50筆來自 skill.s,index50 為 GBC 人物總評追加「极轻很轻」。 */
+#define SKILL_LEVEL_DESC_STRIDE 8
+#define SKILL_LEVEL_DESC_COUNT 51
+#define SKILL_LEVEL_SINGLE_MAX 49
+extern const uint8_t skill_level_desc[408];
 extern const uint8_t strong_lev_desc[24];
 
 /* 秘笈武功表:db 數量,(kf_id,潛能)×數量;book_skill_off[索引]=块內偏移 */

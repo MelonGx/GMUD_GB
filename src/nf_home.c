@@ -1,7 +1,7 @@
 /* nf_home.c - 聯機對戰選單(bank 25):创建游戏/加入游戏(nf.s
  * netgame_menu)。pop_menu 直呼處理器函指標,處理器必須在 HOME/bank 25,
  * 故薄 thunk 以 BANKED 跨 bank 呼叫 nf.c(bank 30)。 */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include "menu.h"
 #include "nf.h"

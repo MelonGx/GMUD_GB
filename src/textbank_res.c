@@ -11,4 +11,4 @@ static const uint8_t* const chunks[3] = {
     textbank_b2,
 };
 
-const res_t textbank_res = { 20, 3, chunks };
+const res_t textbank_res = { 12, 3, chunks };

@@ -11,7 +11,7 @@
  * 錯誤:傳輸失敗/版本不符 → 原版三條錯誤訊息 + 結束。
  *
  * 傳輸層 link.c(對戰線,取代 IrDA;硬體替代,用戶決定 2026-07-17)。 */
-#pragma bank 30
+#pragma bank 31
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
@@ -53,7 +53,9 @@ static void nf_error(const uint8_t *msg)
 }
 
 /* ---- 打包/解包(nf.s package_man / trans_npc,41B man_state 版)----
- * 佈局:[0..40] man_state(name..weapon) [41] picid [42..46] usekf
+ * 佈局:[0..40] man_state(name..weapon) [41] gender(原版此位傳 picid 但
+ * 從未用於畫圖;埠版無頭像系統,改傳性別供對方畫本方主角圖,
+ * 用戶定版 2026-07-18)[42..46] usekf
  * [47] kfnum [48..87] kf(id,級)×20 [88..97] 對方 hp 塊(hp..effhp)
  * [98] 對方 busy [99] 對方 weapon。行動方把雙方權威狀態一併送出。 */
 static void package_man(void)
@@ -62,7 +64,7 @@ static void package_man(void)
     uint8_t i;
 
     memcpy(p, hero.man_name, 41);
-    p[41] = hero.man_picid;
+    p[41] = hero.man_gender;
     memcpy(p + 42, hero.man_usekf, 5);
     p[47] = hero.man_kfnum;
     for (i = 0; i < 20; i++) {                  /* 4 步距 → (id,級) 對 */
@@ -80,7 +82,8 @@ static void trans_npc(void)
     uint8_t w;
 
     memcpy(npc.npc_name, p, 41);        /* npc_state 同構:尾字節=goods[0] */
-    located_id = p[41];                 /* 對方頭像當 NPC 圖 */
+    located_id = p[41];                 /* 對方性別(原版存 picid 同位);
+                                         * write_fight 聯機分支據此選幀集 */
     memcpy(npc.npc_usekf, p + 42, 5);
     npc.npc_kfnum = p[47];
     memcpy(npc_kf, p + 48, 40);
@@ -91,10 +94,9 @@ static void trans_npc(void)
     hero.man_busy = p[98];
     w = p[99];
     if ((uint8_t)(w ^ hero.man_weapon) & 0x80) {
-        /* 落英繽紛擊落武器:被繳械 → 現武器數量-1(原版 luoying_patch) */
-        uint8_t x = find_goods(hero.man_weapon);
-        if (x != 0xFF)
-            hero.man_goods[x + 1]--;
+        /* 對方的權威狀態顯示本方被繳械：數量與武器數值一起回退。 */
+        if (!(w & 0x80))
+            lose_wielded_weapon();
     }
     hero.man_weapon = w;
 }
@@ -141,10 +143,14 @@ static uint8_t net_receive_data(void)
         return 1;
     }
     trans_npc();
-    if (!(net_msg_vision & 0x80) && !(net_perform_flag & 0x80)) {
-        net_flag &= 0x7F;               /* 顯示不回發 */
-        pf_show_fight_msg(NET_PKT_MSG);
-        net_flag |= 0x80;
+    if (!(net_msg_vision & 0x80)) {
+        if (!(net_perform_flag & 0x80)) {
+            net_flag &= 0x7F;           /* 顯示不回發 */
+            pf_show_fight_msg(NET_PKT_MSG);
+            net_flag |= 0x80;
+        }
+        /* 飛擲/震字訣等直接扣 HP 的絕招，新 HP 只在 completion
+         * 包才送到；perform 旗只應隱藏殘留訊息，不能跳過判勝。 */
         if (pf_who_win()) {
             combat_over = 1;
             nf_over = 1;
@@ -170,15 +176,33 @@ static void netgame(void)
             pf_refresh_fight();
             do {
                 if (net_receive_data())
-                    return;
+                    goto out;
             } while (net_repeat != 0);
         }
     }
+out:
+    fenshen_fight_end();
+}
+
+/* 聯機擂台是切磋，敗方不進入單機死亡/讀檔流程。
+ * 致死包仍保留 0 HP 供雙方判勝；離開對局後再保底到 1，
+ * 也在入口修復舊版已留下的 0 HP 狀態，避免下一局單邊先判敗。 */
+static void keep_net_player_alive(void)
+{
+    if (hero.man_effhp == 0)
+        hero.man_effhp = 1;
+    if (hero.man_hp == 0)
+        hero.man_hp = 1;
 }
 
 /* ---- 建立連線 + 初始互換(nf.s create_game/join_game)---- */
 uint8_t nf_create_game(void) BANKED
 {
+    uint8_t saved_speed = speed_mode;
+
+    /* 第一個封包前雙方即固定 EXT，避免狀態、顯示等待與回合節奏不同步。 */
+    fenshen_disable_bsc_feature();
+    speed_mode = 0;
     link_init(1);
     net_init_flag = 0x80;
     net_msg_vision = 0x80;              /* 初始包不顯示訊息 */
@@ -194,11 +218,16 @@ uint8_t nf_create_game(void) BANKED
     netgame();
 out:
     link_exit();
+    speed_mode = saved_speed;
     return 1;                           /* 退選單 */
 }
 
 uint8_t nf_join_game(void) BANKED
 {
+    uint8_t saved_speed = speed_mode;
+
+    fenshen_disable_bsc_feature();
+    speed_mode = 0;
     link_init(0);
     net_init_flag = 0x80;
     if (net_receive_data())
@@ -214,15 +243,18 @@ uint8_t nf_join_game(void) BANKED
     netgame();
 out:
     link_exit();
+    speed_mode = saved_speed;
     return 1;
 }
 
 /* ---- 擂台入口(nf.s netfight)---- */
 void netfight(void) BANKED
 {
+    keep_net_player_alive();
     memset(net_vars, 0, sizeof(net_vars));      /* init_protocol */
     nf_over = 0;
     combat_over = 0;
     pf_init_fight();
     pop_menu(50, 30, &netgame_menu);
+    keep_net_player_alive();
 }

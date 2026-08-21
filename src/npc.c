@@ -7,7 +7,7 @@
  *        npc_look/npc_fight/npc_trade/npc_apprentice/npc_learn 隨對應模組接入
  * 代碼在 bank 25(選單處理器與引擎同 bank)。
  */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include <string.h>
 #include "game.h"
@@ -19,6 +19,7 @@
 #include "save.h"
 #include "gamedata.h"
 #include "goods.h"
+#include "battle_loot.h"
 #include "skill.h"
 #include "ui.h"
 #include "serve.h"
@@ -26,6 +27,8 @@
 #include "menutext.h"
 #include "fight.h"
 #include "task.h"
+#include "learnfast.h"
+#include "menu_input.h"
 
 #define DAXIA_NPC 7
 #define TEACHER_NPC 31
@@ -132,71 +135,6 @@ static uint8_t npc_look(void)
     return 1;
 }
 
-/* ---- 等效 npc.s get_npc_goods:掠奪金錢 + 4 格物品 → 戰利品框 ----
- * 三角鐵(石板碎片)按門派 shiban 位圖判重,一派只得一塊。 */
-static const uint8_t shiban_tbl[7] = { 0, 1, 2, 4, 8, 16, 32 };
-static const uint8_t loot_head[] = {            /* 大获全胜!战斗获得\0金钱: */
-    0xB4, 0xF3, 0xBB, 0xF1, 0xC8, 0xAB, 0xCA, 0xA4, 0x21,
-    0xD5, 0xBD, 0xB6, 0xB7, 0xBB, 0xF1, 0xB5, 0xC3, 0x00,
-    0xBD, 0xF0, 0xC7, 0xAE, 0x3A,
-};
-static const uint8_t loot_goods[] = {           /* 物品: */
-    0xCE, 0xEF, 0xC6, 0xB7, 0x3A,
-};
-
-static void get_npc_goods(void)
-{
-    uint8_t i, g;
-    uint8_t *p = gfx_scratch + 192;             /* 模板組裝區 */
-    uint8_t *names = gfx_scratch + 256;         /* 4×12B(名字池僅 3 格) */
-
-    hero.man_money += npc.npc_money;
-
-    for (i = 0; i < 4; i++) {
-        varbuf[i << 1] = 0;
-        varbuf[(i << 1) + 1] = 0;
-        g = npc.npc_goods[i];
-        if (!g)
-            continue;
-        if (g == SANJIAO_GOODS) {               /* 石板:查派位圖 */
-            uint8_t bit = shiban_tbl[(npc.npc_pai < 7) ? npc.npc_pai : 0];
-            if (hero.shiban & bit)
-                continue;
-            hero.shiban |= bit;
-        }
-        g &= 0x7F;
-        add_goods(g);                           /* 包滿仍列名(原版) */
-        memcpy(names + (i * 12), get_goods_name(g), 12);
-        putw(varbuf + (i << 1), names + (i * 12));
-    }
-
-    /* 組裝 get_msg 模板(dw=本機指針,運行期填) */
-    memcpy(p, loot_head, sizeof loot_head);
-    p += sizeof loot_head;
-    *p++ = 2;                                   /* type2: npc_money */
-    putw(p, &npc.npc_money);
-    p += 2;
-    *p++ = 0; *p++ = 0;                         /* dw 0 行終 */
-    memcpy(p, loot_goods, sizeof loot_goods);
-    p += sizeof loot_goods;
-    for (i = 0; i < 4; i++) {
-        if (i)
-            *p++ = ' ';
-        *p++ = 8;                               /* type8: 名字指針槽 */
-        putw(p, varbuf + (i << 1));
-        p += 2;
-        if (i < 3) {
-            *p++ = 10; *p++ = 0;                /* dw 10 續行 */
-        } else {
-            *p++ = 0; *p++ = 0;                 /* dw 0 行終 */
-        }
-    }
-    *p = 0;                                     /* 全文終 */
-
-    format_string(gfx_scratch + 192);
-    message_box_more(6, 3, 150, 75);            /* 原版 box(6,3)-(150,75) */
-}
-
 /* 等效 npc.s npc_fight:進 fight()(bank 27)+ 戰後處理。
  * exit_code:0 玩家死(原版 exit_game→GBC 軟重啟) 2 逃/被放
  * 1 放過 NPC、3 殺死 NPC → 均掠奪(原版行為);3 另標記死亡。 */
@@ -223,7 +161,7 @@ static uint8_t npc_fight(void)
                 (uint8_t)~(0x80 >> (located_id & 7));
         fight_win_task();       /* 查殺 QUEST_KILL 記完成 / 通緝犯發賞 */
     }
-    get_npc_goods();
+    battle_loot_collect_npc();
     return 1;
 }
 
@@ -401,17 +339,8 @@ static void learn_set_digit(void)
 
 static uint8_t learn_tick(void)
 {
-    /* 學習顯示速度:EXT 每輪 1 點(原版),ADV/BSC 每輪 4 點(x4,
-     * 2026-07-17 用戶定版;interval 已是 1 幀,只能加每輪點數) */
-    uint8_t n = (uint8_t)1 << disp_shift();
-
-    do {
-        if (pyh_learn())
-            return 1;
-    } while (--n);
-    return 0;
+    return learn_process_tick();            /* bank31:250Hz 排程+常態快路徑 */
 }
-
 static uint8_t learn_it(void)
 {
     uint8_t y;
@@ -422,9 +351,13 @@ static uint8_t learn_it(void)
     if (!add_kf())
         return 0;                           /* 武功欄滿 */
 
-    /* 原版 learn_tbl interval=4ms;重建版給 1 幀留按鍵中斷窗口 */
+    /* 原版 learn_tbl interval=4ms。bank31 以真實幀時基排 250 tick/s；
+     * VBlank 佇列鎖存 full framebuffer 期間的一幀取消鍵。 */
+    menu_input_begin();                     /* 等選單 A 放開並清舊鍵 */
+    learn_process_begin();
     busy_flag |= 0x80;                      /* 學習中不回復(npc.s) */
     show_process(32, 1, learn_set_line, learn_set_digit, 1, learn_tick);
+    menu_input_end();
     busy_flag &= 0x7F;
     scroll_to_lcd();
     fb_flush();
@@ -537,6 +470,13 @@ static void init_npc(void)
     if (npc.npc_goods[1] & 0x80) {      /* npc_equip → armor */
         get_goods_attr(npc.npc_goods[1] & 0x7F);
         npc.npc_armor += goods_attr[2];
+    } else if (speed_mode == 2) {
+        /* 原版 npc.s:129 check_equip 的 `bpl init_npc_rts` 跳過了防具加成
+         * 之後「計算後天屬性」整段——沒穿防具的 NPC 拿不到 str/dex 加成。
+         * 判定為原始分支寫錯位置(setup_attr 對主角無條件計算)。
+         * EXT/ADV 修正為無條件計算;BSC 依用戶定案保留原版,見
+         * docs/hidden.md B1。 */
+        return;
     }
 
     y = find_npc_kf(BASIC_BARE_KF);     /* 基本拳腳 → str */

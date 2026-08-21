@@ -8,7 +8,7 @@
  * 結束遊戲:原版退回文曲星系統;GBC 無宿主 → quit_flag 回標題畫面
  * 代碼在 bank 25。
  */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include <string.h>
 #include "game.h"
@@ -23,7 +23,10 @@
 #include "skill.h"
 #include "goods.h"
 #include "serve.h"
+#include "cheat.h"
 #include "gamedata.h"
+#include "task.h"
+#include "fight_internal.h"
 
 #define MAIN_X0   8
 #define MAIN_Y0   1
@@ -31,7 +34,6 @@
 #define SYS_X0    114
 #define LOOK_X0   6
 #define LOOK_X1   156
-#define AGE_TIME      (3600UL * 12)
 #define SAVE_INTERVAL 300
 
 uint8_t quit_flag;
@@ -106,9 +108,11 @@ static void show_desc(void)
             tbl = (hero.game_hour & 1) ? mt_man_per_desc
                                        : mt_girl_per_desc;
         per = hero.man_per;
+        if (per < 10)
+            per = 10;
         if (per > 31)
             per = 31;
-        per = (uint8_t)(per - 10) / 3;      /* 8 檔(照原版無下溢鉤) */
+        per = (uint8_t)(per - 10) / 3;      /* 8 檔;低值使用第一檔 */
         putw(varbuf + 4, tbl + (uint16_t)per * 18);
     }
 
@@ -142,7 +146,8 @@ static void show_score(void)
 static const show_fn look_s[3] = { show_hp, show_desc, show_score };
 /* look_menu(01000100b/3/00010000b/ICON_MENU1):CR 即退 */
 static const cmenu_t look_menu =
-    { 3, 3, 1, 0, MSTYLE_ICON1, 4, 0, 0, look_s, mt_look_menu_items, 0 };
+    { 3, 3, 1, 0, MSTYLE_ICON1, 4, MF_SHOW_OWNS_INPUT,
+      0, look_s, mt_look_menu_items, 0 };
 
 /* 等效 show_look_menu:外框 + 頁籤選單 */
 static uint8_t show_look_menu(void)
@@ -247,8 +252,8 @@ static uint8_t end_game(void)
 }
 
 /* ---- 速度設定(GBC 新增,用戶要求)----
- * EXT=原版 x1;ADV=顯示提速(打坐/練功/學習/婆婆 x4、戰鬥 x2);
- * BSC=顯示同 ADV+任務獎勵 x8(婆婆除外)。倍數不顯示(2026-07-17) */
+ * EXT:打坐/練功 400ms,學習 250 tick/s;ADV/BSC:打坐/練功約 x8,
+ * 學習暫同 EXT。其餘顯示與獎勵差異見 save.h;選單不顯示倍率。 */
 static const uint8_t it_ext[] = "EXT";
 static const uint8_t it_adv[] = "ADV";
 static const uint8_t it_bsc[] = "BSC";
@@ -256,6 +261,8 @@ static const uint8_t it_speed[] = "\xCB\xD9\xB6\xC8 ";      /* 速度 */
 
 static uint8_t set_speed(void)
 {
+    if (menu_set != 2)
+        fenshen_disable_bsc_feature();
     speed_mode = menu_set;
     return 1;
 }
@@ -272,20 +279,35 @@ static uint8_t show_speed_menu(void)
     return 0;                               /* 回功能選單 */
 }
 
-/* 功能選單:原版 4 項 + 速度(GBC 新增項) */
-static const menu_fn sys_h[5] = {
-    show_neili_menu, show_practice, save_game, end_game, show_speed_menu,
+/* ---- 作弊選單(yobdc 專用) — 實作在 cheat.c (bank 29) ---- */
+static const uint8_t it_cheat[] = "\xD7\xF7\xB1\xD7 ";  /* 作弊 */
+
+static uint8_t show_cheat_menu(void)
+{
+    cheat_main();
+    scroll_to_lcd();
+    fb_flush();
+    return 0;
+}
+
+/* 功能選單:原版 4 項 + 速度 + 作弊(yobdc) */
+static const menu_fn sys_h[6] = {
+    show_neili_menu, show_practice, save_game, end_game,
+    show_speed_menu, show_cheat_menu,
 };
-static const uint8_t *const sys_items[5] = {
+static const uint8_t *const sys_items[6] = {
     mt_sys_menu_i0, mt_sys_menu_i1, mt_sys_menu_i2, mt_sys_menu_i3,
-    it_speed,
+    it_speed, it_cheat,
 };
 static const cmenu_t sys_menu =
     { 5, 1, 0, 1, MSTYLE_ARROW, 0, 0, sys_h, 0, sys_items, 0 };
+static const cmenu_t sys_menu_cheat =
+    { 6, 1, 0, 1, MSTYLE_ARROW, 0, 0, sys_h, 0, sys_items, 0 };
 
 static uint8_t show_sys_menu(void)
 {
-    return (pop_menu(SYS_X0, FRAME_Y0, &sys_menu) == 0xFE) ? 2 : 0;
+    const cmenu_t *m = yobdc_mode() ? &sys_menu_cheat : &sys_menu;
+    return (pop_menu(SYS_X0, FRAME_Y0, m) == 0xFE) ? 2 : 0;
 }
 
 /* ---- 主選單 ---- */
@@ -305,34 +327,6 @@ void show_game_menu(void) BANKED
     fb_flush();
 }
 
-/* ================= 角色維護(game.s 非 UI 段) ================= */
-
-/* 等效 setup_maxhp:年齡 + 精血上限(名帶 _cmd 避開字段名) */
-void setup_maxhp_cmd(void) BANKED
-{
-    uint8_t age, y;
-    uint16_t v;
-
-    hero.man_age = (uint8_t)(hero.mud_age / AGE_TIME) + 14;
-
-    age = hero.man_age;
-    if (age < 14)
-        age = 14;
-    if (age > 29)
-        age = 29;
-    v = 100 + (uint16_t)(age - 14) * 20;
-    v += hero.man_maxfp >> 2;
-    hero.man_maxhp = v;
-
-    if (hero.man_age < 20)
-        return;
-    y = find_kf(JIAOYI_KF);                 /* 微調(醫術) */
-    if (y == 0xFF)
-        return;
-    if (hero.man_kf[y + 1] < 80)
-        return;
-    hero.man_maxhp += (uint16_t)hero.man_kf[y + 1] * hero.attr_con / 10;
-}
-
-/* 開機/建角段(game_boot/new_game/set_attr/clear_apply/check_player)
+/* setup_maxhp_cmd → create.c(bank 28,省 bank 25 空間)
+ * 開機/建角段(game_boot/new_game/set_attr/clear_apply/check_player)
  * → create.c(bank 28) */

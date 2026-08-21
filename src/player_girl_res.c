@@ -7,4 +7,4 @@ static const uint8_t* const chunks[1] = {
     player_girl_b0,
 };
 
-const res_t player_girl_res = { 19, 1, chunks };
+const res_t player_girl_res = { 11, 1, chunks };

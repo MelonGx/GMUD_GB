@@ -1,4 +1,4 @@
-#pragma bank 29
+#pragma bank 25
 /* fb.c - 160x144 1bpp framebuffer -> CGB background
  *
  * A full screen needs 360 unique 8x8 tiles, so two ordinary tile copies do
@@ -10,6 +10,7 @@
 #include <gb/cgb.h>
 #include <string.h>
 #include "fb.h"
+#include "menu_input.h"
 #include "blit.h"
 
 uint8_t fb[FB_ROWS * FB_STRIDE];
@@ -299,15 +300,33 @@ static void tail_reap(void) NONBANKED
  * VBlank window used by GDMA.  A delayed ISR after line 151 waits one frame. */
 void fb_vbl_isr(void) NONBANKED
 {
-    uint8_t ly = LY_REG;
+    uint8_t ly;
 
-    if (ly < GDMA_FIRST_LINE || ly >= GDMA_END_LINE)
-        return;
-    if (present_pending)
-        present_now();
-    if (dma_owner == DMA_OWNER_ASYNC_TAIL && (HDMA5_REG & 0x80)) {
-        tail_reap();
-        present_now();
+    ly = LY_REG;
+    if (ly >= GDMA_FIRST_LINE && ly < GDMA_END_LINE) {
+        if (present_pending)
+            present_now();
+        if (dma_owner == DMA_OWNER_ASYNC_TAIL && (HDMA5_REG & 0x80)) {
+            tail_reap();
+            present_now();
+        }
+    }
+
+    /* Sample only after the timing-sensitive framebuffer commit. */
+    if (menu_joy_active) {
+        uint8_t raw = joypad();
+        uint8_t pressed = menu_joy_prev ? 0 : raw;
+
+        menu_joy_prev = raw;
+        menu_joy_now = raw;
+        if (pressed) {
+            uint8_t next = (menu_joy_head + 1) &
+                           (MENU_JOY_QUEUE_SIZE - 1);
+            if (next != menu_joy_tail) {
+                menu_joy_queue[menu_joy_head] = pressed;
+                menu_joy_head = next;
+            }
+        }
     }
 }
 
