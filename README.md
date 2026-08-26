@@ -29,3 +29,6 @@
 8. 編譯要求
    - tools/gbdk 目錄需放置 GBDK 2020 整個程式 (https://github.com/gbdk-2020/gbdk-2020)
    - Windows 作業系統 + Python 3.10+ + GNU MAKE
+
+本專案在尚未釐清源碼使用條款的狀態下開發。
+如有版權疑慮，請聯絡作者。
