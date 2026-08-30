@@ -1,4 +1,4 @@
-本專案移植自 Lee 開源的 NC2000 英雄坛说白金版source code，由 Claude Fable 5 使用 GBDK 2020 製作而成。
+本專案為《GMUD英雄坛说》的 GAMEBOY COLOR 移植作品，移植自 Lee 開源的 NC2000 英雄坛说白金版 source code，由 Claude Fable 5 使用 GBDK 2020 製作而成。
 
 1. Menu 增加 速度 欄
    - EXT：與原版相同
