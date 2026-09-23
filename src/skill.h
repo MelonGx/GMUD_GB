@@ -32,6 +32,20 @@ void get_skill_desc(void);          /* → skill_desc_buf / strong_desc_buf */
 void setup_attr(void);              /* 六維 = 底值 + 基本功/10 */
 uint8_t improve_skill(uint16_t gain);   /* 1=升級 */
 uint8_t add_kf(void);               /* 習得 kf_id,1=成功 */
+
+/* 練功與學習的進度回呼共用本體；保留各自的 static 函式供原呼叫點使用。 */
+#define SKILL_PROGRESS_SET_LINE_BODY \
+    uint8_t y = find_kf(kf_id); \
+    bcdbuf = (uint16_t)hero.man_kf[y + 1] * hero.man_kf[y + 1]; \
+    binbuf = (uint16_t)hero.man_kf[y + 2] \
+           | ((uint16_t)hero.man_kf[y + 3] << 8);
+
+#define SKILL_PROGRESS_SET_DIGIT_BODY \
+    uint8_t y = find_kf(kf_id); \
+    bcdbuf = hero.man_kf[y + 1]; \
+    binbuf = (uint16_t)hero.man_kf[y + 2] \
+           | ((uint16_t)hero.man_kf[y + 3] << 8);
+
 uint8_t show_skills(void);          /* 主選單「技能」(menu_fn) */
 uint8_t practice_cmd(void);         /* 功能→練功(menu_fn) */
 uint8_t dazuo_cmd(void);            /* 功能→內力→打坐(進度迴圈) */

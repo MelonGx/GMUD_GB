@@ -82,17 +82,12 @@ static uint8_t sim_add(uint8_t *bag, uint8_t slots, uint8_t id)
         if (bag[x + 1] && bag[x] == id) {
             if (!is_stackable(id))
                 break;
-            if (bag[x + 1] == 0xFF)
-                return 0;
-            bag[x + 1]++;
-            return 1;
+            GOODS_ADD_STACK(bag, x);
         }
     }
     for (x = 0; x < (uint8_t)(slots << 1); x += 2) {
         if (!bag[x + 1]) {
-            bag[x] = id;
-            bag[x + 1] = 1;
-            return 1;
+            GOODS_ADD_EMPTY(bag, x, id);
         }
     }
     return 0;
