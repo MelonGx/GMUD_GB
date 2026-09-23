@@ -31,17 +31,12 @@ uint8_t add_goods(uint8_t id) BANKED
     if (x != 0xFF) {
         get_goods_attr(id);
         if (goods_attr[0] != WEAPON_WU && goods_attr[0] != EQUIP_WU) {
-            if (hero.man_goods[x + 1] == 0xFF)
-                return 0;                  /* 疊滿:不可回捲成空格 */
-            hero.man_goods[x + 1]++;        /* 可疊加 */
-            return 1;
+            GOODS_ADD_STACK(hero.man_goods, x);
         }
     }
     for (x = 0; x < MAX_GOODS * 2; x += 2) {
         if (hero.man_goods[x + 1] == 0) {
-            hero.man_goods[x] = id;
-            hero.man_goods[x + 1] = 1;
-            return 1;
+            GOODS_ADD_EMPTY(hero.man_goods, x, id);
         }
     }
     return 0;

@@ -321,20 +321,12 @@ static uint8_t npc_apprentice(void)
 
 static void learn_set_line(void)
 {
-    uint8_t y = find_kf(kf_id);
-
-    bcdbuf = (uint16_t)hero.man_kf[y + 1] * hero.man_kf[y + 1];
-    binbuf = (uint16_t)hero.man_kf[y + 2]
-           | ((uint16_t)hero.man_kf[y + 3] << 8);
+    SKILL_PROGRESS_SET_LINE_BODY
 }
 
 static void learn_set_digit(void)
 {
-    uint8_t y = find_kf(kf_id);
-
-    bcdbuf = hero.man_kf[y + 1];
-    binbuf = (uint16_t)hero.man_kf[y + 2]
-           | ((uint16_t)hero.man_kf[y + 3] << 8);
+    SKILL_PROGRESS_SET_DIGIT_BODY
 }
 
 static uint8_t learn_tick(void)

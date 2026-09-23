@@ -20,6 +20,18 @@ uint8_t find_goods(uint8_t id);             /* → man_goods 字節偏移,0xFF=�
 uint8_t add_goods(uint8_t id) BANKED;       /* 取得一件,1=成功 */
 void lose_wielded_weapon(void) BANKED;      /* 擊落/投擲現在武器，回退數值並消耗 1 */
 
+/* add_goods / sim_add 的共用規則；直接展開，保留各自的查找與空格掃描。 */
+#define GOODS_ADD_STACK(storage, offset) \
+    if (storage[offset + 1] == 0xFF) \
+        return 0; \
+    storage[offset + 1]++; \
+    return 1
+
+#define GOODS_ADD_EMPTY(storage, offset, item_id) \
+    storage[offset] = item_id; \
+    storage[offset + 1] = 1; \
+    return 1
+
 uint8_t show_goods(void);                   /* 主選單「物品」(menu_fn) */
 void set_all_goods(void) BANKED;            /* 全部物品 → dmenu_buf(賣出) */
 

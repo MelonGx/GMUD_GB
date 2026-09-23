@@ -612,20 +612,12 @@ static uint8_t proc_batch(void)
 /* ---- 練功(等效 practice_cmd/practice_it,進度 tick=pyh_practice) ---- */
 static void pra_set_line(void)
 {
-    uint8_t y = find_kf(kf_id);
-
-    bcdbuf = (uint16_t)hero.man_kf[y + 1] * hero.man_kf[y + 1];
-    binbuf = (uint16_t)hero.man_kf[y + 2]
-           | ((uint16_t)hero.man_kf[y + 3] << 8);
+    SKILL_PROGRESS_SET_LINE_BODY
 }
 
 static void pra_set_digit(void)
 {
-    uint8_t y = find_kf(kf_id);
-
-    bcdbuf = hero.man_kf[y + 1];
-    binbuf = (uint16_t)hero.man_kf[y + 2]
-           | ((uint16_t)hero.man_kf[y + 3] << 8);
+    SKILL_PROGRESS_SET_DIGIT_BODY
 }
 
 static uint8_t pra_tick(void)               /* HOME 包裝:跨 bank tick */
