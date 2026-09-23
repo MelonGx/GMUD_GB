@@ -8,7 +8,7 @@
  *
  * obj=施展方 you=承受方,以 obj_flag bit7 多態(單機恆主角施展 obj=man)。
  * ptemp/npc_ptemp 在原版位於 game_buf(存檔區外,斷電即失);此處合為
- * 一段 160B(ptemp=前120 npc_ptemp=後40),與原版 call_out 連續掃描一致。
+ * 一段 162B(ptemp=前120 npc_ptemp=後42),與原版 call_out 連續掃描一致。
  *
  * 攻擊(attack_xxx)、招式威力(skill_power)、勝負(who_win)、訊息顯示
  * (show_fight_msg)直呼同 bank 的 fight.c(fight_internal.h,裸調無跳板)。
@@ -178,8 +178,8 @@
 
 /* ================= ptemp 引擎狀態 ================= */
 #define PTEMP_SIZE     120
-#define NPC_PTEMP_SIZE  40
-/* ptemp(0)+npc_ptemp(120)=160B,置 SRAM(main 常開;WRAM 讓給棧,
+#define NPC_PTEMP_SIZE  42  /* 7 槽 x 6B;須為 6 的倍數 */
+/* ptemp(0)+npc_ptemp(120)=162B,置 SRAM(main 常開;WRAM 讓給棧,
  * 2026-07-10)。原版在 game_buf 共享區;每場 init_ptemp 重置。 */
 __at(0xA3A0) static uint8_t pf_area[PTEMP_SIZE + NPC_PTEMP_SIZE];
 
