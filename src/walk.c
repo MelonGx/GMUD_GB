@@ -251,6 +251,7 @@ void gmud_loop(void) BANKED
 
     while (1) {
         /* 先輪詢後閒置等幀:連續行走不因此多耗 1 幀 */
+        heart_beat();           /* 按住方向鍵時也要走鐘與自然回復 */
         k = joypad();
         /* 注意:寫成長 else-if 鏈會觸發 SDCC 優化器缺陷
          * (warning 110 EVELYN),尾端分支被吃掉;改用獨立 if+continue */
@@ -303,6 +304,5 @@ void gmud_loop(void) BANKED
         }
         fb_flush();             /* 閒置:收掉行走串流掛起的翻面 */
         vsync();
-        heart_beat();           /* 等效原版主迴圈 sys_refresh */
     }
 }

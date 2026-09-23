@@ -98,7 +98,9 @@ uint8_t menu_input_wait(uint8_t show_pending, uint8_t row_pending) BANKED
             if (held != repeat_key) {
                 repeat_key = held;
                 repeat_ticks = 0;
-            } else if (repeat_ticks != 0xFF) {
+            } else if (repeat_ticks == 15) {
+                repeat_ticks = 12;       /* repeat every four frames after delay */
+            } else {
                 repeat_ticks++;
             }
             if (pressed & DIR_KEYS)

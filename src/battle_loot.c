@@ -352,7 +352,9 @@ static uint8_t choose_slots(const uint8_t *ids, uint8_t count,
             if (held != repeat_key) {
                 repeat_key = held;
                 repeat_ticks = 0;
-            } else if (repeat_ticks < 0xFF) {
+            } else if (repeat_ticks == 15) {
+                repeat_ticks = 12;       /* 每四幀連發，避免 255 飽和後停住 */
+            } else {
                 repeat_ticks++;
             }
             if (pressed & held)

@@ -266,7 +266,9 @@ uint16_t input_digit(uint8_t x, uint8_t y, uint16_t val, uint16_t max) BANKED
                     cur = (cur + 10 < max) ? cur + 10 : max;
                 digit_show(x, y, cur);
             }
-            if (hold < 255)
+            if (hold == 19)
+                hold = 16;              /* 長按後保持四幀循環 */
+            else
                 hold++;
         } else {
             hold = 0;

@@ -315,7 +315,7 @@ void fb_vbl_isr(void) NONBANKED
     /* Sample only after the timing-sensitive framebuffer commit. */
     if (menu_joy_active) {
         uint8_t raw = joypad();
-        uint8_t pressed = menu_joy_prev ? 0 : raw;
+        uint8_t pressed = raw & (uint8_t)~menu_joy_prev;
 
         menu_joy_prev = raw;
         menu_joy_now = raw;
