@@ -8,6 +8,7 @@
 #define TASK_H
 #include <stdint.h>
 #include <gb/gb.h>      /* BANKED */
+#include "sram_layout.h"
 
 /* 任務類型(原版 h/id.h task 段) */
 #define QUEST_NPC   0
@@ -24,16 +25,15 @@
  * 新遊戲由 game_boot 清零)。task_buf:[0]=quest_type [1]=quest_id
  * [2..3]=bonus exp [4..5]=bonus pot [6..7]=bonus money;
  * quest_temp(72B=12B×6 槽):{index,exp[4],id,time[4],reward[2]} */
-extern __at(0xA320) uint8_t quest_temp[72];
-extern __at(0xA368) uint8_t task_buf[8];
-extern __at(0xA388) uint8_t home_buf;   /* 義工:0 無 1 掃地 2 挑水 3 劈柴 */
-extern __at(0xA370) uint8_t task_gbuf[24];  /* game_buf 共享區(跨模組別名) */
+extern __at(SRAM_QUEST_TEMP) uint8_t quest_temp[SRAM_QUEST_TEMP_LEN];
+extern __at(SRAM_TASK_BUF) uint8_t task_buf[SRAM_TASK_BUF_LEN];
+extern __at(SRAM_HOME_BUF) uint8_t home_buf;   /* 義工:0 無 1 掃地 2 挑水 3 劈柴 */
+extern __at(SRAM_TASK_GBUF) uint8_t task_gbuf[SRAM_TASK_GBUF_LEN];  /* game_buf 共享區(跨模組別名) */
 
-/* 官方秘技(用戶定版 2026-07-18,取代原版 super_man 密碼→cheat_mode):
- * 主角名=yobdc → 開局經驗 999999/潛能拉滿、婆婆義工無經驗上限、
- * 菜花寶典免邪派條件(不必殺人降道德=不用 KO 小頑童;老花鏡仍要)。
- * 其他名字無效。非 BANKED,僅 bank 28 內(create/task/pyh_quest)直呼。 */
-uint8_t yobdc_mode(void);
+/* 官方秘技(原版 super_man→cheat_mode;GBC 版主角名=yobdc):
+ * 功能選單多「作弊」項(查看/修改數值+技能等級)、婆婆義工無經驗上限、
+ * 菜花寶典免邪派條件。非 BANKED,bank 25/28 直呼。 */
+uint8_t yobdc_mode(void) BANKED;
 
 /* npc_talk 任務鏈(pyh_task→尋人達成→npc_quest);0=沒話說(接 dunno) */
 uint8_t talk_task(void) BANKED;

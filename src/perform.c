@@ -631,15 +631,18 @@ static uint32_t skill_xxx_power(uint8_t defense, uint8_t micro)
  * 每招回 1=失敗(carry set) 0=成功(clc)
  * ============================================================ */
 
+/* 保留各招原有的賦值與判定順序；只合併重複的源碼語句。 */
+#define PF_REQUIRE_KF(KF, LEVEL, TYPE) \
+    set_kf = KF; set_level = LEVEL; \
+    if (judge_kf(TYPE)) return 1
+
 /* 八卦門:化掌为刀(掌)ZHANGDAO1 */
 static uint8_t zhangdao_gua(void)
 {
     uint16_t lv;
 
-    set_kf = HUNYUAN_KF; set_level = 105;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = BAGUAZ_KF; set_level = 105;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(HUNYUAN_KF, 105, FORCE_KF);
+    PF_REQUIRE_KF(BAGUAZ_KF, 105, HAND_KF);
     neili_cost = 200;
     if (judge_force()) return 1;
 
@@ -666,10 +669,8 @@ static uint8_t zhangdao_zhen(void)
     uint16_t lv;
     uint8_t inc;
 
-    set_kf = HUNYUAN_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = BAZHEN_KF; set_level = 120;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(HUNYUAN_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(BAZHEN_KF, 120, HAND_KF);
     neili_cost = 400;
     if (judge_force()) return 1;
 
@@ -700,12 +701,9 @@ static uint8_t daoying_gua(void)
 {
     if (get_obj_busy()) { return pf_fail(PT_MAN_BUSY); }
 
-    set_kf = HUNYUAN_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = BAGUAD_KF; set_level = 135;
-    if (judge_kf(WEAPON_KF)) return 1;
-    set_kf = BAGUAZ_KF; set_level = 30;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(HUNYUAN_KF, 90, FORCE_KF);
+    PF_REQUIRE_KF(BAGUAD_KF, 135, WEAPON_KF);
+    PF_REQUIRE_KF(BAGUAZ_KF, 30, HAND_KF);
     neili_cost = 150;
     if (judge_force()) return 1;
 
@@ -736,12 +734,9 @@ static uint8_t daoying_zhen(void)
 {
     uint8_t at, st;
 
-    set_kf = HUNYUAN_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = BAGUAD_KF; set_level = 90;
-    if (judge_kf(WEAPON_KF)) return 1;
-    set_kf = BAZHEN_KF; set_level = 45;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(HUNYUAN_KF, 90, FORCE_KF);
+    PF_REQUIRE_KF(BAGUAD_KF, 90, WEAPON_KF);
+    PF_REQUIRE_KF(BAZHEN_KF, 45, HAND_KF);
     neili_cost = 450;
     if (judge_force()) return 1;
 
@@ -790,10 +785,8 @@ static uint8_t feizhi(void)
 
     if (o16(STR_OFF) < 33) { return pf_fail(PT_NOT_STR); }  /* perform_str */
 
-    set_kf = TONGJI_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = PIFENG_KF; set_level = 120;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(TONGJI_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(PIFENG_KF, 120, WEAPON_KF);
 
     lv0 = skill_level;                  /* perform_temp4 = 判定後的 skill_level */
     neili_cost = 550;
@@ -851,8 +844,7 @@ static uint8_t honglian(void)
 {
     uint16_t lv;
 
-    set_kf = TONGJI_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(TONGJI_KF, 120, FORCE_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -878,8 +870,7 @@ static uint8_t leidong(void)
 {
     uint16_t lv;
 
-    set_kf = TONGJI_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(TONGJI_KF, 90, FORCE_KF);
     neili_cost = 150;
     if (judge_force()) return 1;
 
@@ -906,10 +897,8 @@ static uint8_t chan(void)
 
     if (get_you_busy()) { return pf_fail(PT_NPC_BUSY); }
 
-    set_kf = TAIJIG_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIJ_KF; set_level = 90;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 90, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIJ_KF, 90, WEAPON_KF);
     neili_cost = 250;
     if (judge_force()) return 1;
 
@@ -942,10 +931,8 @@ static uint8_t lian(void)
 {
     uint16_t lv;
 
-    set_kf = TAIJIG_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIJ_KF; set_level = 120;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIJ_KF, 120, WEAPON_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -972,10 +959,8 @@ static uint8_t taoyue(void)
 {
     uint8_t dmg;
 
-    set_kf = TAIJIG_KF; set_level = 180;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIJ_KF; set_level = 180;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 180, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIJ_KF, 180, WEAPON_KF);
     neili_cost = 400;
     if (judge_force()) return 1;
 
@@ -1010,10 +995,8 @@ static uint8_t ji(void)
 {
     uint16_t r1, cmpv;
 
-    set_kf = TAIJIG_KF; set_level = 105;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIQ_KF; set_level = 105;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 105, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIQ_KF, 105, HAND_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -1051,10 +1034,8 @@ static uint8_t luanhuan(void)
 {
     uint16_t r1, cmpv;
 
-    set_kf = TAIJIG_KF; set_level = 150;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIQ_KF; set_level = 150;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 150, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIQ_KF, 150, HAND_KF);
     neili_cost = 300;
     if (judge_force()) return 1;
 
@@ -1090,10 +1071,8 @@ static uint8_t yinyang(void)
     uint8_t at, st;
     uint16_t r1, cmpv;
 
-    set_kf = TAIJIG_KF; set_level = 180;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIQ_KF; set_level = 180;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 180, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIQ_KF, 180, HAND_KF);
     neili_cost = 500;
     if (judge_force()) return 1;
 
@@ -1152,10 +1131,8 @@ static uint8_t zhen(void)
 {
     uint16_t r1, cmpv;
 
-    set_kf = TAIJIG_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = TAIJIQ_KF; set_level = 90;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(TAIJIG_KF, 90, FORCE_KF);
+    PF_REQUIRE_KF(TAIJIQ_KF, 90, HAND_KF);
     neili_cost = 200;
     if (judge_force()) return 1;
 
@@ -1213,8 +1190,7 @@ static uint8_t sanhua(void)
     uint16_t lv;
     uint8_t p1;
 
-    set_kf = SANHUA_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(SANHUA_KF, 90, FORCE_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -1244,13 +1220,10 @@ static uint8_t sanhua(void)
 /* 花間派:柳浪闻莺 LIULANG */
 static uint8_t liulang(void)
 {
-    set_kf = SANHUA_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = MEIHUA_KF; set_level = 60;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(SANHUA_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(MEIHUA_KF, 60, HAND_KF);
     neili_cost = 200;
-    set_kf = LIU_KF; set_level = 90;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(LIU_KF, 90, WEAPON_KF);
     if (skill_level >= 120)
         neili_cost = 400;
     if (judge_force()) return 1;
@@ -1279,10 +1252,8 @@ static uint8_t liulang(void)
 /* 花間派:落英缤纷 LUOYING */
 static uint8_t luoying(void)
 {
-    set_kf = SANHUA_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = HUATUAN_KF; set_level = 120;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(SANHUA_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(HUATUAN_KF, 120, WEAPON_KF);
     neili_cost = 400;
     if (judge_force()) return 1;
 
@@ -1336,10 +1307,8 @@ static uint8_t liuchu(void)
 {
     uint8_t reps, at;
 
-    set_kf = XUESHANG_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = XUESHANJ_KF; set_level = 90;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(XUESHANG_KF, 90, FORCE_KF);
+    PF_REQUIRE_KF(XUESHANJ_KF, 90, WEAPON_KF);
 
     /* neili_cost = (skill-90)/30*150 + 250,上限 600 */
     {
@@ -1385,8 +1354,7 @@ static uint8_t shengui(void)
 {
     uint16_t r1, cmpv;
 
-    set_kf = XUEYING_KF; set_level = 120;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(XUEYING_KF, 120, HAND_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -1421,8 +1389,7 @@ static uint8_t bingxin(void)
     uint8_t dly;
 
     neili_cost = 150;
-    set_kf = XUESHANG_KF; set_level = 75;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(XUESHANG_KF, 75, FORCE_KF);
     if (skill_level >= 90)
         neili_cost = 250;
     if (judge_force()) return 1;
@@ -1454,10 +1421,8 @@ static uint8_t lianzhan(void)
 {
     if (get_obj_busy()) { return pf_fail(PT_MAN_BUSY); }
 
-    set_kf = RENSHU_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = YIDAO_KF; set_level = 90;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(RENSHU_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(YIDAO_KF, 90, WEAPON_KF);
     neili_cost = 350;
     if (judge_force()) return 1;
 
@@ -1488,10 +1453,8 @@ static uint8_t yidao(void)
 
     if (get_obj_busy()) { return pf_fail(PT_MAN_BUSY); }
 
-    set_kf = RENSHU_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
-    set_kf = YIDAO_KF; set_level = 120;
-    if (judge_kf(WEAPON_KF)) return 1;
+    PF_REQUIRE_KF(RENSHU_KF, 120, FORCE_KF);
+    PF_REQUIRE_KF(YIDAO_KF, 120, WEAPON_KF);
     neili_cost = 550;
     if (judge_force()) return 1;
 
@@ -1529,8 +1492,7 @@ static uint8_t fenshen(void)
 
     obj_flag = 0x80;                    /* smb7 obj_flag(原版) */
 
-    set_kf = RENSHU_KF; set_level = 120;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(RENSHU_KF, 120, FORCE_KF);
     neili_cost = 550;
     if (judge_force()) return 1;
 
@@ -1564,8 +1526,7 @@ static uint8_t yianmu(void)
     uint16_t r1, t1;
     uint8_t p1;
 
-    set_kf = RENSHU_KF; set_level = 90;
-    if (judge_kf(FORCE_KF)) return 1;
+    PF_REQUIRE_KF(RENSHU_KF, 90, FORCE_KF);
     neili_cost = 300;
     if (judge_force()) return 1;
 
@@ -1651,8 +1612,7 @@ static uint8_t yakyu(void)
 {
     uint8_t obj_gender, tgt_gender, stun;
 
-    set_kf = MENGHU_KF; set_level = 50;
-    if (judge_kf(HAND_KF)) return 1;
+    PF_REQUIRE_KF(MENGHU_KF, 50, HAND_KF);
     neili_cost = 334;
     if (judge_force()) return 1;
 

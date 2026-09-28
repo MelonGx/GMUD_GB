@@ -22,6 +22,7 @@
 #include "blit.h"
 #include "skill.h"
 #include "goods.h"
+#include "le16_write_body.h"
 #include "serve.h"
 #include "cheat.h"
 #include "gamedata.h"
@@ -43,9 +44,7 @@ uint32_t save_time;             /* create.c(game_boot)錨定 */
 
 static void putw(uint8_t *p, const void *v)
 {
-    uint16_t a = (uint16_t)v;
-    p[0] = (uint8_t)a;
-    p[1] = (uint8_t)(a >> 8);
+    LE16_PUTW_BODY(a);
 }
 
 /* ---- 查看:show_more 分頁(5 行;DOWN 續頁,LEFT/RIGHT/ESC 回推) ---- */

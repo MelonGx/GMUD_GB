@@ -3,13 +3,14 @@
  * 代碼在 bank 25(呼叫端均為 25 端模組或選單會話期的 HOME 處理器)。
  * 讀取來源 OutBuf(WRAM),跨 bank 安全。
  */
-#pragma bank 25
+#pragma bank 26
 #include <gb/gb.h>
 #include "text.h"
 #include "font.h"
 #include "fb.h"
 #include "res.h"
 #include "textbank_res.h"
+#include "ui_line_impl.h"
 
 /* 等效 stringx.s get_text_data 的 is_npc_data 全段(自 text.c 遷入,
  * 僅 npc.c 同 bank 呼叫):屬性 53B → npc;kf 表;商販貨單;長描述 */
@@ -50,18 +51,12 @@ void text_load_npc(uint8_t id)
 
 static void hline(uint8_t x0, uint8_t x1, uint8_t y)
 {
-    uint8_t x;
-    for (x = x0; x <= x1; x++)
-        fb[(uint16_t)y * FB_STRIDE + (x >> 3)] |= 0x80 >> (x & 7);
-    fb_mark_dirty(y, 1);
+    UI_HLINE_BODY
 }
 
 static void vline(uint8_t x, uint8_t y0, uint8_t y1)
 {
-    uint8_t y;
-    for (y = y0; y <= y1; y++)
-        fb[(uint16_t)y * FB_STRIDE + (x >> 3)] |= 0x80 >> (x & 7);
-    fb_mark_dirty(y0, y1 - y0 + 1);
+    UI_VLINE_BODY
 }
 
 static void wait_key_any(void)
@@ -71,6 +66,22 @@ static void wait_key_any(void)
         vsync();
     waitpadup();
 }
+
+/* Shared page wrap and glyph layout; each caller retains its width rule. */
+#define TEXTUI_PAGE_CHAR_BODY(END_X, START_X, DRAW_Y) \
+    if (x + w > END_X) { \
+        line++; \
+        x = START_X; \
+        continue; \
+    } \
+    if (w == 12) { \
+        font_draw_cjk(x, DRAW_Y, ((uint16_t)p[0] << 8) | p[1]); \
+        p += 2; \
+    } else { \
+        font_draw_ascii(x, DRAW_Y, *p); \
+        p += 1; \
+    } \
+    x += w;
 
 /* 通用分頁框:顯示 OutBuf(項=行,超寬軟換行) */
 static void box_pages(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
@@ -84,10 +95,7 @@ static void box_pages(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
         nl = 1;
     while (!done) {
         fb_fill_rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0);
-        hline(x0, x1, y0);
-        hline(x0, x1, y1);
-        vline(x0, y0, y1);
-        vline(x1, y0, y1);
+        UI_BOX_EDGES(hline, vline, x0, y0, x1, y1)
 
         line = 0;
         x = x0 + 2;
@@ -103,20 +111,7 @@ static void box_pages(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
                 continue;
             }
             w = (p[0] >= 0xA1 && p[1] >= 0xA1) ? 12 : 6;
-            if (x + w > x1 - 1) {
-                line++;
-                x = x0 + 2;
-                continue;
-            }
-            if (w == 12) {
-                font_draw_cjk(x, y0 + 2 + line * 13,
-                              ((uint16_t)p[0] << 8) | p[1]);
-                p += 2;
-            } else {
-                font_draw_ascii(x, y0 + 2 + line * 13, *p);
-                p += 1;
-            }
-            x += w;
+            TEXTUI_PAGE_CHAR_BODY(x1 - 1, x0 + 2, y0 + 2 + line * 13)
         }
         fb_flush();
         if (!done || wait_final)
@@ -143,10 +138,7 @@ void show_talk_msg0(void) BANKED
     uint8_t line, x, w;
 
     fb_fill_rect(1, 0, 159, 29, 0);
-    hline(1, 159, 0);
-    hline(1, 159, 28);
-    vline(1, 0, 28);
-    vline(159, 0, 28);
+    UI_BOX_EDGES(hline, vline, 1, 0, 159, 28)
 
     for (line = 0, x = 3; line < 2 && *p; ) {
         if (*p == 0) {
@@ -158,19 +150,7 @@ void show_talk_msg0(void) BANKED
             continue;
         }
         w = (*p & 0x80) ? 12 : 6;
-        if (x + w > 158) {
-            line++;
-            x = 3;
-            continue;
-        }
-        if (w == 12) {
-            font_draw_cjk(x, 2 + line * 13, ((uint16_t)p[0] << 8) | p[1]);
-            p += 2;
-        } else {
-            font_draw_ascii(x, 2 + line * 13, *p);
-            p += 1;
-        }
-        x += w;
+        TEXTUI_PAGE_CHAR_BODY(158, 3, 2 + line * 13)
     }
     fb_flush();
 }

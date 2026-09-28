@@ -696,6 +696,14 @@ void refresh_fight(void)
 }
 
 /* ================= 攻防管線(fight.s attack_npc/attack_man) ================ */
+/* 四個閃避/招架失手分支沿用原有訊息、結束判定和返回順序。 */
+#define FIGHT_MISS_IF(point, message) \
+    if (!hit_roll(attack_point, point)) { \
+        show_fight_msg(message); \
+        if (who_win()) \
+            combat_over = 1; \
+        return; \
+    }
 static void not_attack_busy(uint8_t is_man)
 {
     if (is_man) {
@@ -746,12 +754,7 @@ void attack_npc(void)
     if (npc.npc_busy)
         dp /= 3;
     dodge_point = dp;
-    if (!hit_roll(attack_point, dodge_point)) {  /* 被閃過 */
-        show_fight_msg(msgbuf);
-        if (who_win())
-            combat_over = 1;
-        return;
-    }
+    FIGHT_MISS_IF(dodge_point, msgbuf)          /* 被閃過 */
 
     /* ---- 招架 PP(npc)---- */
     escape_msg = get_py_action(npc.npc_goods[0]);
@@ -762,12 +765,7 @@ void attack_npc(void)
     if (npc.npc_busy)
         pp /= 3;
     parry_point = pp;
-    if (!hit_roll(attack_point, parry_point)) {  /* 被招架 */
-        show_fight_msg(escape_msg);
-        if (who_win())
-            combat_over = 1;
-        return;
-    }
+    FIGHT_MISS_IF(parry_point, escape_msg)      /* 被招架 */
 
     if (!fenshen(0))                             /* npc 分身閃過 */
         return;
@@ -830,12 +828,7 @@ void attack_man(void)
     if (hero.man_busy)
         dp /= 3;
     dodge_point = dp;
-    if (!hit_roll(attack_point, dodge_point)) {  /* 被閃過 */
-        show_fight_msg(msgbuf);
-        if (who_win())
-            combat_over = 1;
-        return;
-    }
+    FIGHT_MISS_IF(dodge_point, msgbuf)          /* 被閃過 */
 
     escape_msg = get_py_action(hero.man_weapon);
     kf_type = PARRY_KF;
@@ -845,12 +838,7 @@ void attack_man(void)
     if (hero.man_busy)
         pp /= 3;
     parry_point = pp;
-    if (!hit_roll(attack_point, parry_point)) {  /* 被招架 */
-        show_fight_msg(escape_msg);
-        if (who_win())
-            combat_over = 1;
-        return;
-    }
+    FIGHT_MISS_IF(parry_point, escape_msg)      /* 被招架 */
 
     if (!fenshen(1))
         return;

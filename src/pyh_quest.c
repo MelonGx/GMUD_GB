@@ -18,6 +18,7 @@
 #include "fb.h"
 #include "blit.h"
 #include "goods.h"
+#include "le16_write_body.h"
 #include "font.h"
 #include "skill.h"          /* add_kf/find_kf(HOME) — 凌波微步發放 */
 #include "gamedata.h"       /* LINGBO_KF */
@@ -44,22 +45,18 @@
 #define GOODMAN      160            /* h/gmud.h 道德閾值 */
 #define BADMAN       100
 
-extern __at(0xA370) uint8_t task_gbuf[24];      /* SRAM(task.h 同址) */
 #define wk_var (task_gbuf + 4)      /* 原版 varbuf+2(工錢 3×2B) */
 
 #define tplbuf (gfx_scratch + 192)
 
 static void putw(uint8_t *p, const void *v)
 {
-    uint16_t a = (uint16_t)v;
-    p[0] = (uint8_t)a;
-    p[1] = (uint8_t)(a >> 8);
+    LE16_PUTW_BODY(a);
 }
 
 static void wr16(uint8_t *p, uint16_t v)
 {
-    p[0] = (uint8_t)v;
-    p[1] = (uint8_t)(v >> 8);
+    LE16_WR16_BODY;
 }
 
 /* 等效 show_text:格式化 → 頂框對話(等鍵) → 回地圖 */

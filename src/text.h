@@ -3,6 +3,7 @@
 #define TEXT_H
 #include <stdint.h>
 #include <gb/gb.h>      /* BANKED */
+#include "sram_layout.h"
 
 /* 類別序 = text_addr.s text_class_tbl */
 #define TC_NPC_NAME 0
@@ -48,7 +49,7 @@ extern uint8_t net_vars[7];
 #define net_repeat       (net_vars[4])
 #define net_perform_flag (net_vars[5])
 #define net_init_flag    (net_vars[6])
-extern __at(0xA200) uint8_t scratch288[288];    /* SRAM;與 file_buf 分時複用 */
+extern __at(SRAM_SCRATCH) uint8_t scratch288[SRAM_SCRATCH_LEN];    /* SRAM;與 file_buf 分時複用 */
 #define OutBuf scratch288       /* format_string 輸出(原版同名) */
 
 /* gfx_scratch 分時複用配置(WRAM 緊張):
@@ -58,6 +59,8 @@ extern __at(0xA200) uint8_t scratch288[288];    /* SRAM;與 file_buf 分時複�
  *   +80  skill_desc_buf(8)/+88 strong_desc_buf(4)(skill.h)
  *   +92  wuyi/chushou type9 記錄(npc.c,2×4B)
  *   +100 get_goods_name 輪替名字池(goods.c,3×12B)
+ *   +136 戰後滿包候選清單(41B)+178 原背包槽映射(20B)
+ *   +200 戰利品 24 槽模擬(48B)+248 原子提交映像(40B)
  *   +376 npc_desc(200B,text_load_npc 起至對話結束) */
 extern uint8_t gfx_scratch[576];    /* map.c 定義 */
 #define npc_desc (gfx_scratch + 376)    /* NPC 長描述(200B,分時複用) */

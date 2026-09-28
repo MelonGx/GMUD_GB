@@ -31,6 +31,7 @@
 #include "fb.h"
 #include "blit.h"
 #include "goods.h"
+#include "le16_write_body.h"
 #include "skill.h"      /* kf_id($g/$k) */
 #include "gamedata.h"   /* kf_name_tbl/pf_name_tbl */
 #include "res.h"
@@ -60,9 +61,9 @@
 /* 任務狀態置 SRAM(main 常開;WRAM 讓給棧 2026-07-10)。附帶效果:
  * quest_temp 跨斷電保留=更貼近原機 RAM 常駐語義(先前 WRAM 斷電清零
  * 屬硬體差異);新遊戲時由 game_boot 清零(=原版程式載入 BSS 清零)。 */
-__at(0xA320) uint8_t quest_temp[72];
-__at(0xA368) uint8_t task_buf[8];
-__at(0xA388) uint8_t home_buf;
+__at(SRAM_QUEST_TEMP) uint8_t quest_temp[SRAM_QUEST_TEMP_LEN];
+__at(SRAM_TASK_BUF) uint8_t task_buf[SRAM_TASK_BUF_LEN];
+__at(SRAM_HOME_BUF) uint8_t home_buf;
 
 /* game_buf 共享區(原版偏移):quest_numbers@0 quest_index@1 quest_exp@2-5
  * quest_delay@6-9 quest_reward@10-11 ghost_level@12 task_temp1@16-17
@@ -71,7 +72,7 @@ __at(0xA388) uint8_t home_buf;
  * varbuf+2@4(工錢槽,覆蓋 quest_exp 高半+quest_delay=原版行為).
  * 原未用的 13-15/22-23 作為通緝犯斷電狀態，也會被 save.c
  * 的每 slot 任務快照保留。 */
-__at(0xA370) uint8_t task_gbuf[24];
+__at(SRAM_TASK_GBUF) uint8_t task_gbuf[SRAM_TASK_GBUF_LEN];
 #define quest_numbers (task_gbuf[0])
 #define quest_index   (task_gbuf[1])
 #define quest_exp     (task_gbuf + 2)
@@ -87,7 +88,7 @@ __at(0xA370) uint8_t task_gbuf[24];
 #define ghost_save_y      (task_gbuf[22])
 #define ghost_save_gender (task_gbuf[23])
 
-__at(0xA389) static uint8_t kmap_name[17];  /* 兇手圖名(原版存 G_img_buf) */
+__at(SRAM_KMAP_NAME) static uint8_t kmap_name[SRAM_KMAP_NAME_LEN];  /* 兇手圖名(原版存 G_img_buf) */
 static uint8_t *km_slot;            /* kill_npc_msg type8 二次間接槽 */
 
 #define tplbuf (gfx_scratch + 192)
@@ -97,13 +98,11 @@ static uint8_t *km_slot;            /* kill_npc_msg type8 二次間接槽 */
  * 內容不跨對話存活。列表:count,{exp 4B,id 1B}×,最大 1+118*5=591B */
 /* Full-screen mode makes framebuffer rows 112..143 visible.  Keep the
  * 1 + 118 * 5 byte quest sort table in free SRAM bank 0 instead. */
-__at(0xB340) static uint8_t quest_list[591];
+__at(SRAM_QUEST_LIST) static uint8_t quest_list[SRAM_QUEST_LIST_LEN];
 
 static void putw(uint8_t *p, const void *v)
 {
-    uint16_t a = (uint16_t)v;
-    p[0] = (uint8_t)a;
-    p[1] = (uint8_t)(a >> 8);
+    LE16_PUTW_BODY(a);
 }
 
 static uint16_t rd16(const uint8_t *p)
@@ -113,8 +112,7 @@ static uint16_t rd16(const uint8_t *p)
 
 static void wr16(uint8_t *p, uint16_t v)
 {
-    p[0] = (uint8_t)v;
-    p[1] = (uint8_t)(v >> 8);
+    LE16_WR16_BODY;
 }
 
 static uint32_t rd32(const uint8_t *p)
@@ -211,10 +209,24 @@ uint8_t *task_escape(uint8_t c, uint8_t *out) BANKED
 
 /* ---- 等效 tools.s random_map:為殺手挑一張圖一個空位 ----
  * 臨時 change_map0 到候選圖讀格子,選畢複製圖名並還原當前圖;
- * 位置要求:本格全空(<BLAK),四鄰不是門;一圖試 8 次,不成換圖 */
+ * 位置要求:本格全空(<BLAK),四鄰不是門;一圖試 8 次,不成換圖。
+ * GBC 修正:原版沒做入口可達性檢查,實際圖資有兩個封閉小室;
+ * 用圖資窮舉測試固定核對六個不可達候選格,避免任務卡滿 20 分鐘。 */
 static uint8_t rm_cell_class(uint8_t x, uint8_t y)
 {
     return (uint8_t)(get_object0((uint16_t)y * G_Map_Width + x) >> 10);
+}
+
+static uint8_t rm_cell_reachable(void)
+{
+    /* map 3:(1..2,9..10); map 26:(13,10..11) */
+    if (G_Curr_Map == 3 && G_Killer_X <= 2
+        && G_Killer_Y >= 9 && G_Killer_Y <= 10)
+        return 0;
+    if (G_Curr_Map == 26 && G_Killer_X == 13
+        && G_Killer_Y >= 10 && G_Killer_Y <= 11)
+        return 0;
+    return 1;
 }
 
 static void random_map(uint8_t *name_out)
@@ -238,6 +250,8 @@ static void random_map(uint8_t *name_out)
             if (rm_cell_class(G_Killer_X, G_Killer_Y - 1) == 2)
                 continue;
             if (rm_cell_class(G_Killer_X, G_Killer_Y + 1) == 2)
+                continue;
+            if (!rm_cell_reachable())
                 continue;
             memcpy(name_out, G_MapName, 16);
             name_out[16] = 0;
@@ -698,7 +712,7 @@ static const uint8_t menpai_tbl[7][6] = {
     { 12, 11, 15, 14, 11, 11 },     /* 八卦门:掌/刀/游龙/混元/刀,钢刀 */
     { 19, 17, 16, 20, 17, 22 },     /* 花间派 */
     { 24, 23, 21, 25, 23, 21 },     /* 红莲教 */
-    { 27, 29, 28, 26, 29, 11 },     /* 挪呀谷 */
+    { 27, 29, 28, 26, 29, 11 },     /* 尹贺谷 */
     { 31, 30, 33, 32, 30, 35 },     /* 太极门 */
     { 39, 38, 35, 36, 38, 35 },     /* 雪山剑派 */
 };
@@ -873,9 +887,9 @@ static void task_bonus(void)
 
 /* ================= 官方秘技判定(task.h 說明) ================= */
 
-uint8_t yobdc_mode(void)
+uint8_t yobdc_mode(void) BANKED
 {
-    static const uint8_t nm[6] = "yobdc";   /* 含結尾 0,防前綴誤中 */
+    static const uint8_t nm[6] = "yobdc";
     return memcmp(hero.man_name, nm, 6) == 0;
 }
 
@@ -885,8 +899,7 @@ static void voluntary_work(void)
 {
     uint8_t y;
 
-    /* 原版經驗上限 5000;yobdc 秘技無限做(2026-07-18 用戶定版) */
-    if (!yobdc_mode() && hero.man_exp >= 5000UL) {
+    if (hero.man_exp >= 5000UL) {
         fmt_show(tm_exp_high_msg);
         return;
     }

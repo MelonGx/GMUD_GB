@@ -16,17 +16,18 @@
  *     存檔解不開,改成 1 重試)
  * 代碼在 bank 25(僅 game.c 同 bank 呼叫;SRAM 存取不涉 ROM bank)。
  */
-#pragma bank 26
+#pragma bank 27
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
+#include "sram_layout.h"
 
 hero_save_t hero;
 
 extern const uint8_t ecc_tbl[256];
 
 #define IO_BSW_BIT7 0           /* 原版 io_bios_bsw bit7 的假設值 */
-#define FILE_SIZE (SAVE_SIZE + 8)
+#define FILE_SIZE SRAM_SCRATCH_LEN
 
 /* ---- 雙存檔 slot(用戶決策 2026-07-10)----
  * slot0=0xA000(與單槽時代存檔向後相容)、slot1=0xA500。
@@ -36,17 +37,17 @@ extern const uint8_t ecc_tbl[256];
  * 0xA1F0 兩字節 = {0x5A, 擁有者 slot} 記錄工作區屬於誰。
  * 標記缺失(雙槽功能前的舊 SRAM)視同屬於 slot0,工作區原樣保留。 */
 uint8_t active_slot;
-#define SLOT_BASE() ((uint8_t *)(active_slot ? 0xA500 : 0xA000))
-#define TASK_WORK   ((uint8_t *)0xA320)
-#define TASK_LEN    105
-#define TASK_SNAP(s) ((uint8_t *)((s) ? 0xA620 : 0xA120))
-#define OWN_MARK    ((uint8_t *)0xA1F0)
+#define SLOT_BASE() ((uint8_t *)(active_slot ? SRAM_SAVE_SLOT1 : SRAM_SAVE_SLOT0))
+#define TASK_WORK   ((uint8_t *)SRAM_QUEST_TEMP)
+#define TASK_LEN    SRAM_TASK_WORK_LEN
+#define TASK_SNAP(s) ((uint8_t *)((s) ? SRAM_TASK_SNAP1 : SRAM_TASK_SNAP0))
+#define OWN_MARK    ((uint8_t *)SRAM_OWNER_MARK)
 
 /* 共用暫存區(WRAM 緊張):存檔 file_buf 與文本 OutBuf 分時複用,
  * 兩者不可能同時活躍(存檔操作不在對話格式化中發生)。
  * 置於 SRAM 0xA200(存檔映像 0xA000..0xA11F 之後;main 已常開 SRAM)
  * —— WRAM 讓給棧,根治棧溢底毀全域(2026-07-10)。 */
-__at(0xA200) uint8_t scratch288[FILE_SIZE];
+__at(SRAM_SCRATCH) uint8_t scratch288[FILE_SIZE];
 #define filebuf scratch288
 
 /* 原版 get_checksum:對 data[5..SAVE_SIZE-1] 算 6 字節校驗 → out */

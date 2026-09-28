@@ -12,6 +12,7 @@
 #include "font.h"
 #include "gamedata.h"
 #include "goods.h"
+#include "le16_write_body.h"
 #include "menu.h"
 #include "save.h"
 #include "text.h"
@@ -62,9 +63,7 @@ static uint8_t picker_used;
 
 static void putw(uint8_t *p, const void *v)
 {
-    uint16_t w = (uint16_t)v;
-    p[0] = (uint8_t)w;
-    p[1] = (uint8_t)(w >> 8);
+    LE16_PUTW_BODY(w);
 }
 
 static uint8_t is_stackable(uint8_t id)

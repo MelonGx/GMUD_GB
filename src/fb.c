@@ -411,6 +411,21 @@ static uint8_t tail_start(uint16_t dst, const uint8_t *src, uint8_t blocks,
     return dma_hblank_start(blocks, DMA_OWNER_ASYNC_TAIL);
 }
 
+/* 兩個傳輸視窗共用相同的 vbank 界、DMA 長度與來源設定。 */
+#define STREAM_HEAD_WINDOW_SETUP \
+    if (consumed < VRAM_BANK0_BLOCKS) { \
+        if (avail > VRAM_BANK0_BLOCKS - consumed) \
+            avail = VRAM_BANK0_BLOCKS - consumed; \
+        VBK_REG = 0; \
+        dp = 0x8000 + consumed * 16; \
+    } else { \
+        VBK_REG = 1; \
+        dp = 0x8000 + (consumed - VRAM_BANK0_BLOCKS) * 16; \
+    } \
+    if (avail > DMA_MAX_BLOCKS) \
+        avail = DMA_MAX_BLOCKS; \
+    sp = stage_head + consumed * 16
+
 /* 頭段(bank1)邊轉置邊串流(windowed-chase,2026-07-15 提速):
  * 轉置本身 ~165 線佔滿一幀,期間必掠過 VBlank 窗——舊「全轉置再傳」
  * 白白浪費這些窗。本版把頭 12 行的生產與傳輸交織:
@@ -432,18 +447,7 @@ static void stream_head(void)
         produced = (uint16_t)prow * 20;
         if (consumed < produced) {
             avail = produced - consumed;        /* 已產未傳 */
-            if (consumed < VRAM_BANK0_BLOCKS) { /* 片不跨 vbank 界 */
-                if (avail > VRAM_BANK0_BLOCKS - consumed)
-                    avail = VRAM_BANK0_BLOCKS - consumed;
-                VBK_REG = 0;
-                dp = 0x8000 + consumed * 16;
-            } else {
-                VBK_REG = 1;
-                dp = 0x8000 + (consumed - VRAM_BANK0_BLOCKS) * 16;
-            }
-            if (avail > DMA_MAX_BLOCKS)
-                avail = DMA_MAX_BLOCKS;
-            sp = stage_head + consumed * 16;
+            STREAM_HEAD_WINDOW_SETUP;           /* 片不跨 vbank 界 */
 
             /* A safe VBlank window has priority; otherwise keep producing so
              * conversion time overlaps the approach to the next window. */
@@ -458,18 +462,7 @@ static void stream_head(void)
             produce_row(prow++);
         } else if (consumed < produced) {       /* 全產完殘餘:HBlank 補 */
             avail = produced - consumed;
-            if (consumed < VRAM_BANK0_BLOCKS) {
-                if (avail > VRAM_BANK0_BLOCKS - consumed)
-                    avail = VRAM_BANK0_BLOCKS - consumed;
-                VBK_REG = 0;
-                dp = 0x8000 + consumed * 16;
-            } else {
-                VBK_REG = 1;
-                dp = 0x8000 + (consumed - VRAM_BANK0_BLOCKS) * 16;
-            }
-            if (avail > DMA_MAX_BLOCKS)
-                avail = DMA_MAX_BLOCKS;
-            sp = stage_head + consumed * 16;
+            STREAM_HEAD_WINDOW_SETUP;
 
             n = dma_hblank_visible(dp, sp, (uint8_t)avail);
             if (n) {
@@ -481,6 +474,7 @@ static void stream_head(void)
         }
     }
 }
+#undef STREAM_HEAD_WINDOW_SETUP
 
 /* 全幀 flush(windowed-chase + 異步尾鏈):
  * ① 收完上幀尾鏈,釋放 bank0/stage_tail;② 以上幀待顯示位面的反面為

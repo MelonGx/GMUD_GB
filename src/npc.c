@@ -19,6 +19,7 @@
 #include "save.h"
 #include "gamedata.h"
 #include "goods.h"
+#include "le16_write_body.h"
 #include "battle_loot.h"
 #include "skill.h"
 #include "ui.h"
@@ -86,9 +87,7 @@ static const uint8_t look_msg_tpl[] = {
 
 static void putw(uint8_t *p, const void *v)
 {
-    uint16_t a = (uint16_t)v;
-    p[0] = (uint8_t)a;
-    p[1] = (uint8_t)(a >> 8);
+    LE16_PUTW_BODY(a);
 }
 
 /* 等效 npc.s npc_look */

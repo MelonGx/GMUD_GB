@@ -43,6 +43,11 @@ static void blit_row(int16_t dst_x, uint8_t *row, const uint8_t *src,
     }
 }
 
+#define BLIT_ALIGNED_ROWS(op) \
+    for (r = r0; r < h; r++, d += 20 - n, s += w_bytes - n) \
+        for (i = 0; i < n; i++) \
+            *d++ op *s++
+
 void lee_block(int16_t x, int16_t y, const uint8_t *img,
                uint8_t w_bytes, uint8_t h, uint8_t lcmd) BANKED
 {
@@ -97,19 +102,13 @@ void lee_block(int16_t x, int16_t y, const uint8_t *img,
         s = img + (uint16_t)r0 * w_bytes + i0;
         switch (lcmd) {
         case LCMD_OR:
-            for (r = r0; r < h; r++, d += 20 - n, s += w_bytes - n)
-                for (i = 0; i < n; i++)
-                    *d++ |= *s++;
+            BLIT_ALIGNED_ROWS(|=);
             break;
         case LCMD_AND:
-            for (r = r0; r < h; r++, d += 20 - n, s += w_bytes - n)
-                for (i = 0; i < n; i++)
-                    *d++ &= *s++;
+            BLIT_ALIGNED_ROWS(&=);
             break;
         default:
-            for (r = r0; r < h; r++, d += 20 - n, s += w_bytes - n)
-                for (i = 0; i < n; i++)
-                    *d++ = *s++;
+            BLIT_ALIGNED_ROWS(=);
             break;
         }
         return;
@@ -120,6 +119,8 @@ void lee_block(int16_t x, int16_t y, const uint8_t *img,
         blit_row(x, &scroll_buf[(uint16_t)(y + r) * 20],
                  img + (uint16_t)r * w_bytes, w_bytes, lcmd);
 }
+
+#undef BLIT_ALIGNED_ROWS
 
 void scroll_to_lcd(void) BANKED
 {

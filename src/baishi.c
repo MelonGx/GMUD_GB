@@ -19,6 +19,17 @@
 
 static const uint8_t *bs_msg;       /* 本次判定的台詞 */
 
+/* 各師父沿用原本的條件順序與訊息；僅共用拒收、收徒的語句。 */
+#define BS_REJECT_IF(condition, message) \
+    if (condition) { \
+        bs_msg = message; \
+        return 0; \
+    }
+
+#define BS_ACCEPT(message) \
+    bs_msg = message; \
+    return 1
+
 /* 等效 serve.s get_lvl */
 static uint8_t get_lvl(uint8_t id)
 {
@@ -30,232 +41,119 @@ static uint8_t get_lvl(uint8_t id)
 
 static uint8_t shangjianming(void)          /* 商劍鳴(八卦刀) */
 {
-    if (hero.man_gender == 1) {
-        bs_msg = bs_bagua_gender_msg;
-        return 0;
-    }
-    if (hero.man_maxfp < 500) {
-        bs_msg = bs_bagua_maxfp_msg;
-        return 0;
-    }
-    if (get_lvl(HUNYUAN_KF) < 50) {
-        bs_msg = bs_bagua_flvl_msg;
-        return 0;
-    }
-    if (get_lvl(BAGUAD_KF) < 50) {
-        bs_msg = bs_shang_blvl_msg;
-        return 0;
-    }
-    bs_msg = bs_shang_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
+    BS_REJECT_IF(hero.man_maxfp < 500, bs_bagua_maxfp_msg)
+    BS_REJECT_IF(get_lvl(HUNYUAN_KF) < 50, bs_bagua_flvl_msg)
+    BS_REJECT_IF(get_lvl(BAGUAD_KF) < 50, bs_shang_blvl_msg)
+    BS_ACCEPT(bs_shang_suc_msg);
 }
 
 static uint8_t shangbaozhen(void)           /* 商寶震 */
 {
-    if (hero.man_gender == 1) {
-        bs_msg = bs_bagua_gender_msg;
-        return 0;
-    }
-    bs_msg = bs_baozhen_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
+    BS_ACCEPT(bs_baozhen_suc_msg);
 }
 
 static uint8_t wangweiyang(void)            /* 王維揚 */
 {
-    if (hero.man_gender == 1) {
-        bs_msg = bs_bagua_gender_msg;
-        return 0;
-    }
-    if (hero.man_maxfp < 800) {
-        bs_msg = bs_bagua_maxfp_msg;
-        return 0;
-    }
-    if (get_lvl(HUNYUAN_KF) < 100) {
-        bs_msg = bs_bagua_flvl_msg;
-        return 0;
-    }
-    if (get_lvl(BAGUAD_KF) < 100) {
-        bs_msg = bs_wang_blvl_msg;
-        return 0;
-    }
-    bs_msg = bs_wang_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
+    BS_REJECT_IF(hero.man_maxfp < 800, bs_bagua_maxfp_msg)
+    BS_REJECT_IF(get_lvl(HUNYUAN_KF) < 100, bs_bagua_flvl_msg)
+    BS_REJECT_IF(get_lvl(BAGUAD_KF) < 100, bs_wang_blvl_msg)
+    BS_ACCEPT(bs_wang_suc_msg);
 }
 
 static uint8_t liqingzhao(void)             /* 李清照(花間派) */
 {
-    if (hero.man_gender == 0) {
-        bs_msg = bs_hua_gender_msg;
-        return 0;
-    }
-    if (hero.man_int < 31 && hero.man_per < 25) {
-        bs_msg = bs_li_per_msg;
-        return 0;
-    }
-    if (get_lvl(LITERATE_KF) < 100) {
-        bs_msg = bs_li_llvl_msg;
-        return 0;
-    }
-    if (hero.man_maxfp < 1000) {
-        bs_msg = bs_li_flvl_msg;
-        return 0;
-    }
-    bs_msg = bs_li_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
+    BS_REJECT_IF(hero.man_int < 31 && hero.man_per < 25, bs_li_per_msg)
+    BS_REJECT_IF(get_lvl(LITERATE_KF) < 100, bs_li_llvl_msg)
+    BS_REJECT_IF(hero.man_maxfp < 1000, bs_li_flvl_msg)
+    BS_ACCEPT(bs_li_suc_msg);
 }
 
 static uint8_t pingpopo(void)               /* 平婆婆 */
 {
-    if (hero.man_gender == 0) {
-        bs_msg = bs_hua_gender_msg;
-        return 0;
-    }
-    bs_msg = bs_ping_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
+    BS_ACCEPT(bs_ping_suc_msg);
 }
 
 static uint8_t sangqinghong(void)           /* 桑青虹 */
 {
-    if (hero.man_gender == 0) {
-        bs_msg = bs_hua_gender_msg;
-        return 0;
-    }
-    if (get_lvl(MEIHUA_KF) < 60) {
-        bs_msg = bs_hua_ulvl_msg;
-        return 0;
-    }
-    bs_msg = bs_hua_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
+    BS_REJECT_IF(get_lvl(MEIHUA_KF) < 60, bs_hua_ulvl_msg)
+    BS_ACCEPT(bs_hua_suc_msg);
 }
 
 static uint8_t tangwanci(void)              /* 唐婉詞 */
 {
-    if (hero.man_gender == 0) {
-        bs_msg = bs_hua_gender_msg;
-        return 0;
-    }
-    if (get_lvl(MEIHUA_KF) < 30) {
-        bs_msg = bs_hua_ulvl_msg;
-        return 0;
-    }
-    bs_msg = bs_hua_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
+    BS_REJECT_IF(get_lvl(MEIHUA_KF) < 30, bs_hua_ulvl_msg)
+    BS_ACCEPT(bs_hua_suc_msg);
 }
 
 static uint8_t fangzhanglao(void)           /* 方丈老(紅蓮教) */
 {
-    bs_msg = bs_honglian_suc_msg;
-    return 1;
+    BS_ACCEPT(bs_honglian_suc_msg);
 }
 
 static uint8_t yuhongru(void)               /* 余泓儒 */
 {
-    if (get_lvl(TONGJI_KF) < 100) {
-        bs_msg = bs_yu_flvl_msg;
-        return 0;
-    }
-    if (hero.man_str < 30) {
-        bs_msg = bs_yu_str_msg;
-        return 0;
-    }
-    bs_msg = bs_honglian_suc_msg;
-    return 1;
+    BS_REJECT_IF(get_lvl(TONGJI_KF) < 100, bs_yu_flvl_msg)
+    BS_REJECT_IF(hero.man_str < 30, bs_yu_str_msg)
+    BS_ACCEPT(bs_honglian_suc_msg);
 }
 
 static uint8_t hezhongyang(void)            /* 賀中央(尹賀谷) */
 {
-    if (get_lvl(RENSHU_KF) < 120) {
-        bs_msg = bs_naja_flvl_msg;
-        return 0;
-    }
-    if (hero.man_str < 32) {
-        bs_msg = bs_naja_str_msg;
-        return 0;
-    }
-    bs_msg = bs_hezhong_suc_msg;
-    return 1;
+    BS_REJECT_IF(get_lvl(RENSHU_KF) < 120, bs_naja_flvl_msg)
+    BS_REJECT_IF(hero.man_str < 32, bs_naja_str_msg)
+    BS_ACCEPT(bs_hezhong_suc_msg);
 }
 
 static uint8_t meina(void)                  /* 梅十三 */
 {
-    if (get_lvl(WUFA_KF) < 60) {
-        bs_msg = bs_huashi_ulvl_msg;
-        return 0;
-    }
-    bs_msg = bs_naja_suc_msg;
-    return 1;
+    BS_REJECT_IF(get_lvl(WUFA_KF) < 60, bs_huashi_ulvl_msg)
+    BS_ACCEPT(bs_naja_suc_msg);
 }
 
 static uint8_t tengwangwan(void)            /* 滕王晚 */
 {
-    bs_msg = bs_naja_suc_msg;
-    return 1;
+    BS_ACCEPT(bs_naja_suc_msg);
 }
 
 static uint8_t cangyue(void)                /* 藏月道長(太極門) */
 {
-    bs_msg = bs_taiji_suc_msg;
-    return 1;
+    BS_ACCEPT(bs_taiji_suc_msg);
 }
 
 static uint8_t qingxu(void)                 /* 清虛道長 */
 {
-    if (hero.man_maxfp < 1500) {
-        bs_msg = bs_qingxu_maxfp_msg;
-        return 0;
-    }
-    if (get_lvl(TAIJIG_KF) < 120) {
-        bs_msg = bs_qingxu_flvl_msg;
-        return 0;
-    }
-    if (get_lvl(TAIJIQ_KF) < 100) {
-        bs_msg = bs_qingxu_ulvl_msg;
-        return 0;
-    }
-    if (hero.man_int < 28) {
-        bs_msg = bs_qingxu_int_msg;
-        return 0;
-    }
-    bs_msg = bs_qingxu_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_maxfp < 1500, bs_qingxu_maxfp_msg)
+    BS_REJECT_IF(get_lvl(TAIJIG_KF) < 120, bs_qingxu_flvl_msg)
+    BS_REJECT_IF(get_lvl(TAIJIQ_KF) < 100, bs_qingxu_ulvl_msg)
+    BS_REJECT_IF(hero.man_int < 28, bs_qingxu_int_msg)
+    BS_ACCEPT(bs_qingxu_suc_msg);
 }
 
 static uint8_t jiaotou(void)                /* 雪山教頭 */
 {
-    if (hero.man_dex < 22) {
-        bs_msg = bs_xueshan_dex_msg;
-        return 0;
-    }
-    bs_msg = bs_jiaotou_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_dex < 22, bs_xueshan_dex_msg)
+    BS_ACCEPT(bs_jiaotou_suc_msg);
 }
 
 static uint8_t bairuide(void)               /* 白瑞德 */
 {
-    if (get_lvl(XUESHANG_KF) < 100 && hero.man_maxfp < 1200) {
-        bs_msg = bs_bairui_maxfp_msg;
-        return 0;
-    }
-    if (hero.man_con < 32) {
-        bs_msg = bs_bairui_con_msg;
-        return 0;
-    }
-    bs_msg = bs_bairui_suc_msg;
-    return 1;
+    BS_REJECT_IF(get_lvl(XUESHANG_KF) < 100 && hero.man_maxfp < 1200, bs_bairui_maxfp_msg)
+    BS_REJECT_IF(hero.man_con < 32, bs_bairui_con_msg)
+    BS_ACCEPT(bs_bairui_suc_msg);
 }
 
 static uint8_t fengwanjian(void)            /* 風萬箭 */
 {
-    if (hero.man_dex < 23) {
-        bs_msg = bs_xueshan_dex_msg;
-        return 0;
-    }
-    if (get_lvl(XUESHANG_KF) < 40) {
-        bs_msg = bs_fengwan_flvl_msg;
-        return 0;
-    }
-    bs_msg = bs_fengwan_suc_msg;
-    return 1;
+    BS_REJECT_IF(hero.man_dex < 23, bs_xueshan_dex_msg)
+    BS_REJECT_IF(get_lvl(XUESHANG_KF) < 40, bs_fengwan_flvl_msg)
+    BS_ACCEPT(bs_fengwan_suc_msg);
 }
 
 /* ---- 分派表(序=原版 bashi_npc_tbl) ---- */

@@ -11,6 +11,7 @@
 #include "game.h"
 #include "save.h"
 #include "skill.h"
+#include "ui_line_impl.h"
 
 /* ---- 按鍵:等效 system.s wait_key + key 回推 ---- */
 uint8_t ui_pushed_key;
@@ -57,18 +58,12 @@ uint8_t wait_key(void) BANKED
 /* ---- 線/反白 ---- */
 void ui_hline(uint8_t x0, uint8_t x1, uint8_t y) BANKED
 {
-    uint8_t x;
-    for (x = x0; x <= x1; x++)
-        fb[(uint16_t)y * FB_STRIDE + (x >> 3)] |= 0x80 >> (x & 7);
-    fb_mark_dirty(y, 1);
+    UI_HLINE_BODY
 }
 
 void ui_vline(uint8_t x, uint8_t y0, uint8_t y1) BANKED
 {
-    uint8_t y;
-    for (y = y0; y <= y1; y++)
-        fb[(uint16_t)y * FB_STRIDE + (x >> 3)] |= 0x80 >> (x & 7);
-    fb_mark_dirty(y0, y1 - y0 + 1);
+    UI_VLINE_BODY
 }
 
 /* ui_invert 已遷至 uiinv.c(bank 31),見該檔說明 */
@@ -148,10 +143,7 @@ uint8_t show_string(uint8_t nlines, uint8_t xh, uint8_t y) BANKED
 static void draw_box(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
     fb_fill_rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0);
-    ui_hline(x0, x1, y0);
-    ui_hline(x0, x1, y1);
-    ui_vline(x0, y0, y1);
-    ui_vline(x1, y0, y1);
+    UI_BOX_EDGES(ui_hline, ui_vline, x0, y0, x1, y1)
 }
 
 /* 確認鍵在 GBC 上固定為 A/B。提示放在框外的獨立列，避免長訊息
