@@ -51,7 +51,7 @@ uint8_t confirm_box(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1,
  * 上下 ±1 帶按住連發;A 確認、B 取消回傳原值) */
 uint16_t input_digit(uint8_t x, uint8_t y, uint16_t val, uint16_t max) BANKED;
 
-/* 等效 lee1.s show_text:格式化 msg → 底部 3 行顯示,停留約 2 秒 */
+/* 服務訊息:EXT 等待 340 RTC tick，ADV/BSC 85 tick（以 GBC 幀近似）。 */
 void show_text(const uint8_t *msg) BANKED;
 void show_text_out(void) BANKED;    /* 顯示已格式化的 OutBuf(跨 bank 訊息用) */
 

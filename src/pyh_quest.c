@@ -27,7 +27,7 @@
 #include "nf.h"             /* 擂台聯機對戰(bank 30 BANKED) */
 #include "ending_data.h"    /* 三結局捲軸文本(bank 28 本地) */
 
-#define DELAY_CONST 2               /* 每句停 2 秒 */
+#define DELAY_CONST 2               /* EXT 每句兩次 delay_1_sec(240 RTC tick) */
 
 #define DIAOGAN_GOODS 73
 #define FISH_GOODS    74
@@ -68,15 +68,10 @@ static void show_fmt(const uint8_t *msg)
     fb_flush();
 }
 
-/* 等效 delay_show_text:不等鍵,顯示後停 DELAY_CONST 次 delay_1_sec。
- * 義工號子受速度檔縮短(EXT=x1、ADV/BSC=x4,用戶定版 2026-07-17)
- *
- * 2026-08-02 校準:原版 pyh_quest.s:171-174 是 `jsr delay_1_sec` × 2,而
- * system.s:242 的 delay_1_sec 名字叫一秒、實際是 waittime(240)=240/256 s
- * = 937.5ms。舊值一次算 60 幀(=1.0046s)有兩重誤差:把 240/256 當成 1 秒,
- * 又把 1 秒當成 60 幀。正確是 240 tick × 1024/4389 = 55.99 → 56 幀。
- * 一段 2×56=112 幀=1.8755s,五段合計 9.377s,對原版 9.375s 差 +0.02%
- * (舊值五段 10.046s,慢 7.2%)。 */
+/* 義工號子/完成句:EXT 保留原版兩次 240 RTC tick，即 480 tick。
+ * ADV/BSC 為原版 4 倍速度，即 120 tick；服務訊息另為 85 tick。
+ * RTC 256Hz 換成 GBC 幀:480 tick 約 112 幀，120 tick 約 28 幀。
+ * 接任務、體力不足及工錢明細的等鍵對話不走此自動等待。 */
 #define DELAY_1SEC_FRAMES 56        /* 原版 delay_1_sec = 240 tick */
 
 static void delay_show(const uint8_t *msg, uint8_t len)

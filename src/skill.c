@@ -539,24 +539,25 @@ uint8_t show_skills(void)
     return 0;
 }
 
-/* 打坐/練功的 effect tick。原版兩張表都是 dw 400 = 400ms/tick。
- * EXT 用真實 GBC 幀時基排 23/24 幀 deadline；等待逐幀取鍵，畫面重畫
- * 與固定 interval 都算在 400ms 內。ADV/BSC 保留原有 4 tick/輪、約
- * 50ms/tick 的 x8 節奏。effect 邏輯、RNG 與停止條件不變。 */
+/* 打坐/練功的 effect tick。EXT 按原表 400ms，以 23/24 幀排程。
+ * ADV/BSC 每輪保留 4 tick，以 11/12 幀排 200ms，平均 50ms/tick。
+ * 畫面重畫與 interval 都算在 deadline 內；等待逐幀取鍵。 */
 #define PROC_INTERVAL  6
+#define PROC_FAST_INTERVAL 1
 #define PROC_FAST_BATCH 4
-#define PROC_EXT_DEN    21945u
+#define PROC_PHASE_DEN  21945u
 #define PROC_EXT_REM    19553u
+#define PROC_FAST_REM   20749u
 
 static uint16_t proc_deadline, proc_phase;
 
-static uint8_t proc_ext_frames(void)
+static uint8_t proc_frames(void)
 {
-    uint8_t frames = 23;
+    uint8_t frames = speed_mode ? 11 : 23;
 
-    proc_phase += PROC_EXT_REM;
-    if (proc_phase >= PROC_EXT_DEN) {
-        proc_phase -= PROC_EXT_DEN;
+    proc_phase += speed_mode ? PROC_FAST_REM : PROC_EXT_REM;
+    if (proc_phase >= PROC_PHASE_DEN) {
+        proc_phase -= PROC_PHASE_DEN;
         frames++;
     }
     return frames;
@@ -565,10 +566,8 @@ static uint8_t proc_ext_frames(void)
 static void proc_begin(void)
 {
     menu_input_begin();                 /* 等選單 A 放開並開 VBlank 鎖存 */
-    if (!speed_mode) {
-        proc_phase = 0;
-        proc_deadline = sys_time + proc_ext_frames();
-    }
+    proc_phase = 0;
+    proc_deadline = sys_time + proc_frames();
 }
 
 static uint8_t proc_wait(void)
@@ -579,8 +578,6 @@ static uint8_t proc_wait(void)
         waitpadup();
         return 1;
     }
-    if (speed_mode)
-        return 0;
     while ((int16_t)(sys_time - proc_deadline) < 0) {
         vsync();
         heart_beat();
@@ -595,13 +592,13 @@ static uint8_t proc_wait(void)
         return 1;
     }
     /* 從現在重錨；阻塞訊息返回後最多立即執行一次，不補跑整段時間。 */
-    proc_deadline = sys_time + proc_ext_frames();
+    proc_deadline = sys_time + proc_frames();
     return 0;
 }
 
 static uint8_t proc_interval(void)
 {
-    return PROC_INTERVAL;
+    return speed_mode ? PROC_FAST_INTERVAL : PROC_INTERVAL;
 }
 
 static uint8_t proc_batch(void)

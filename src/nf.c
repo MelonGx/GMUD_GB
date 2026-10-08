@@ -181,7 +181,7 @@ static void netgame(void)
         }
     }
 out:
-    fenshen_fight_end();
+    perform_fight_end();
 }
 
 /* 聯機擂台是切磋，敗方不進入單機死亡/讀檔流程。

@@ -455,12 +455,25 @@ void fenshen_disable_bsc_feature(void) BANKED
     fenshen_feature_unmark();
 }
 
-/* 對局在 delay 歸零前結束：EXT/ADV 從 ptemp 精確還原；BSC 刻意
- * 留下影分身效果。無論哪檔都清本場槽，下一場不得再拿舊倒數還原。 */
-void fenshen_fight_end(void) BANKED
+/* 對局在 delay 歸零前結束：EXT/ADV 還原三花與影分身；BSC 保留。
+ * 影分身三檔皆清本場槽；BSC 三花槽沿用原行為，於下場初始化清除。 */
+void perform_fight_end(void) BANKED
 {
     uint8_t saved = obj_flag;
-    uint8_t found, y;
+    uint8_t found, y, o;
+
+    if (speed_mode != 2) {
+        for (o = 0; o < PTEMP_SIZE + NPC_PTEMP_SIZE; o += 6) {
+            if (pf_area[o] != SANHUA_PF)
+                continue;
+            obj_flag = (o < PTEMP_SIZE) ? 0x80 : 0x00;
+            refresh_data(pf_area[o + 1], pf_area[o + 2]);
+            refresh_data(pf_area[o + 3], pf_area[o + 4]);
+            pf_area[o] = 0xFF;
+            for (y = 1; y < 6; y++)
+                pf_area[o + y] = 0;
+        }
+    }
 
     obj_flag = 0x80;
     found = find_ptemp(FENSHEN_PF);

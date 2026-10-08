@@ -35,6 +35,7 @@
 #define SYS_X0    114
 #define LOOK_X0   6
 #define LOOK_X1   156
+#define LOOK_Y1   (FRAME_Y0 + 6 * 12 + 2)
 #define SAVE_INTERVAL 300
 
 uint8_t quit_flag;
@@ -53,8 +54,9 @@ static void show_more(void)
     uint8_t k;
 
     for (;;) {
-        fb_fill_rect(LOOK_X0 + 1, FRAME_Y0 + 12,
-                     LOOK_X1 - LOOK_X0 - 1, 6 * 12 - 12 - 1, 0);
+        fb_fill_rect(LOOK_X0, FRAME_Y0 + 12,
+                     LOOK_X1 - LOOK_X0,
+                     LOOK_Y1 - (FRAME_Y0 + 12) - 1, 0);
         if (!show_string(5, LOOK_X0 / 6, FRAME_Y0 + 12)) {
             fb_flush();
             return;
@@ -152,11 +154,12 @@ static const cmenu_t look_menu =
 static uint8_t show_look_menu(void)
 {
     fb_fill_rect(LOOK_X0 - 1, FRAME_Y0 - 2,
-                 LOOK_X1 - LOOK_X0 + 2, 6 * 12 + 3, 0);
+                 LOOK_X1 - LOOK_X0 + 2,
+                 LOOK_Y1 - (FRAME_Y0 - 2) + 1, 0);
     ui_hline(LOOK_X0 - 1, LOOK_X1, FRAME_Y0 - 2);
-    ui_hline(LOOK_X0 - 1, LOOK_X1, FRAME_Y0 + 6 * 12);
-    ui_vline(LOOK_X0 - 1, FRAME_Y0 - 2, FRAME_Y0 + 6 * 12);
-    ui_vline(LOOK_X1, FRAME_Y0 - 2, FRAME_Y0 + 6 * 12);
+    ui_hline(LOOK_X0 - 1, LOOK_X1, LOOK_Y1);
+    ui_vline(LOOK_X0 - 1, FRAME_Y0 - 2, LOOK_Y1);
+    ui_vline(LOOK_X1, FRAME_Y0 - 2, LOOK_Y1);
 
     pop_menu(LOOK_X0 + 8 * 6, FRAME_Y0, &look_menu);
     scroll_to_lcd();
@@ -271,10 +274,32 @@ static const uint8_t *const spd_items[3] = { it_ext, it_adv, it_bsc };
 static const cmenu_t speed_menu =
     { 3, 1, 0, 1, MSTYLE_RADIO, 4, MF_USESET, spd_h, 0, spd_items, 0 };
 
+#define SPEED_X 84
+#define SPEED_Y (FRAME_Y0 + 8)
+#define SPEED_BG_XBYTE ((SPEED_X - 2) / 8)
+#define SPEED_BG_Y (SPEED_Y - 1)
+#define SPEED_BG_BYTES 6
+#define SPEED_BG_ROWS (3 * 12 + 2)
+#define speed_bg (gfx_scratch + 192)
+
 static uint8_t show_speed_menu(void)
 {
+    uint8_t row;
+
+    /* 保存框及 13px 字模覆蓋的 x=80..127、y=11..48。
+     * 靜態速度選單不使用 tplbuf，暫借其區域 228B 保存父選單背景。 */
+    for (row = 0; row < SPEED_BG_ROWS; row++)
+        memcpy(speed_bg + (uint16_t)row * SPEED_BG_BYTES,
+               fb + ((uint16_t)SPEED_BG_Y + row) * FB_STRIDE + SPEED_BG_XBYTE,
+               SPEED_BG_BYTES);
     menu_set = (speed_mode <= 2) ? speed_mode : 0;  /* 游標=現值 */
-    pop_menu(84, FRAME_Y0 + 8, &speed_menu);
+    pop_menu(SPEED_X, SPEED_Y, &speed_menu);
+    for (row = 0; row < SPEED_BG_ROWS; row++)
+        memcpy(fb + ((uint16_t)SPEED_BG_Y + row) * FB_STRIDE + SPEED_BG_XBYTE,
+               speed_bg + (uint16_t)row * SPEED_BG_BYTES,
+               SPEED_BG_BYTES);
+    fb_mark_dirty(SPEED_BG_Y, SPEED_BG_ROWS);
+    fb_flush();
     return 0;                               /* 回功能選單 */
 }
 

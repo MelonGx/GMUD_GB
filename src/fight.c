@@ -1190,7 +1190,7 @@ void fight(void) BANKED
         combat_over = 0;
         attack_man();
         if (combat_over) {
-            fenshen_fight_end();
+            perform_fight_end();
             busy_flag &= 0x7F;
             return;
         }
@@ -1204,7 +1204,7 @@ void fight(void) BANKED
             break;
         /* 0xFF(ESC)不退出戰鬥,重開選單 */
     }
-    fenshen_fight_end();
+    perform_fight_end();
     clear_nline2(80, FB_ROWS - 80);              /* 清完整擴展帶殘留 */
     fb_flush();
     busy_flag &= 0x7F;
