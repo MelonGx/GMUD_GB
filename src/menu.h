@@ -18,6 +18,8 @@
 #include <gb/gb.h>      /* BANKED */
 #include "text.h"       /* gfx_scratch */
 
+#define MENU_ROW_H 13       /* 12px 中文字 + 1px 行間空白 */
+
 #define MSTYLE_NORMAL 0     /* 反白當前項,無游標格 */
 #define MSTYLE_ARROW  1
 #define MSTYLE_BOX    2
@@ -29,6 +31,8 @@
 
 #define MF_DIGITS 0x01      /* 動態條目 2 字節:[id,數量],畫 xN */
 #define MF_USESET 0x02      /* 初始游標=menu_set */
+
+#define MF_SHOW_OWNS_INPUT 0x04 /* show callback runs its own wait_key loop */
 
 typedef uint8_t (*menu_fn)(void);
 typedef void (*show_fn)(void);

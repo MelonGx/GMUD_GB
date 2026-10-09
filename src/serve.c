@@ -238,7 +238,7 @@ uint8_t pyh_learn(void) BANKED
     }
     hero.man_pot--;                         /* 原版先扣潛能再查學費 */
 
-    if (kf_id == LITERATE_KF) {             /* 讀書識字學費階梯 */
+    if (kf_id == LITERATE_KF) {             /* 读书识字學費階梯 */
         if (my_skill < 20)
             fee = 5;
         else if (my_skill < 30)

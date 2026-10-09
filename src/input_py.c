@@ -19,9 +19,10 @@
 #include "res.h"
 #include "pinyin_res.h"
 #include "input_py.h"
+#include "menu.h"
 
 #define PAGE_N   10
-#define GRID_Y0  20            /* 字母兩行 y=20/34 */
+#define GRID_Y0  20            /* 字母兩行 y=20/33 */
 #define CAND_Y   62
 #define HDR_Y    2
 #define SYL_BASE 4             /* pinyin.bin:頭 4B 後音節表 */
@@ -95,7 +96,7 @@ static void cur_invert(uint8_t focus, uint8_t grow, uint8_t gcol,
 {
     if (focus == 0)
         ui_invert((uint8_t)(7 + gcol * 12),
-                  (uint8_t)(GRID_Y0 + grow * 14), 10, 13);
+                  (uint8_t)(GRID_Y0 + grow * MENU_ROW_H), 10, 12);
     else
         ui_invert((uint8_t)(15 + csel * 13), CAND_Y, 13, 13);
 }
@@ -120,7 +121,7 @@ static void draw_all(uint8_t focus, uint8_t grow, uint8_t gcol,
 
     for (i = 0; i < 26; i++)                    /* 字母格 13×2 */
         font_draw_ascii((uint8_t)(9 + (i % 13) * 12),
-                        (uint8_t)(GRID_Y0 + (i / 13) * 14),
+                        (uint8_t)(GRID_Y0 + (i / 13) * MENU_ROW_H),
                         (uint8_t)('a' + i));
 
     for (i = 0; i < PAGE_N && base + i < cand_hi; i++)

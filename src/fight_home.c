@@ -46,13 +46,13 @@ const cmenu_t fight_menu =
  * 需切 bank,此處逐位掃描故留本地):perform_id → 所需 kf_id(掃已啟用的
  * 攻/閃/內功槽,命中即列入)。門檻(judge_kf/judge_force)施展時再驗。 */
 static const uint8_t pf_req_kf[26] = {
-    11, 11, 12, 13,             /* daoying×2 / zhangdao×2:八卦刀/掌/阵 */
-    17, 18, 20,                 /* luoying / liulang / sanhua */
-    23, 25, 25,                 /* feizhi / honglian / leidong */
-    26, 26, 29, 29,             /* fenshen / yianmu / lianzhan / yidao */
-    30, 30, 30,                 /* chan / lian / taoyue */
-    31, 31, 31, 31,             /* ji / luanhuan / yinyang / zhen */
-    36, 38, 39,                 /* bingxin / liuchu / shengui */
+    11, 11, 12, 13,             /* 八卦刀影掌／八阵刀影掌／化掌为刀×2 */
+    17, 18, 20,                 /* 落英缤纷／柳浪闻莺／三花 */
+    23, 25, 25,                 /* 流星飞掷／红莲出世／雷动九天 */
+    26, 26, 29, 29,             /* 忍法影分身／忍术烟幕／旋风三连斩／迎风一刀斩 */
+    30, 30, 30,                 /* 缠字决／连字决／三环套月 */
+    31, 31, 31, 31,             /* 挤字诀／乱环诀／阴阳诀／震字诀 */
+    36, 38, 39,                 /* 冰心决／雪花六出／神倒鬼跌 */
     40,                         /* yakyu:猛虎拳(BSC only) */
     0xFF,
 };

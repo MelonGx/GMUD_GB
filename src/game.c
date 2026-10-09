@@ -35,7 +35,9 @@
 #define SYS_X0    114
 #define LOOK_X0   6
 #define LOOK_X1   156
-#define LOOK_Y1   (FRAME_Y0 + 6 * 12 + 2)
+#define LOOK_ROWS 5
+#define LOOK_TEXT_Y (FRAME_Y0 + MENU_ROW_H)
+#define LOOK_Y1   (LOOK_TEXT_Y + LOOK_ROWS * MENU_ROW_H + 1)
 #define SAVE_INTERVAL 300
 
 uint8_t quit_flag;
@@ -51,17 +53,22 @@ static void putw(uint8_t *p, const void *v)
 /* ---- 查看:show_more 分頁(5 行;DOWN 續頁,LEFT/RIGHT/ESC 回推) ---- */
 static void show_more(void)
 {
-    uint8_t k;
+    uint8_t k, line, y;
 
     for (;;) {
-        fb_fill_rect(LOOK_X0, FRAME_Y0 + 12,
+        fb_fill_rect(LOOK_X0, LOOK_TEXT_Y,
                      LOOK_X1 - LOOK_X0,
-                     LOOK_Y1 - (FRAME_Y0 + 12) - 1, 0);
-        if (!show_string(5, LOOK_X0 / 6, FRAME_Y0 + 12)) {
-            fb_flush();
-            return;
+                     LOOK_Y1 - LOOK_TEXT_Y - 1, 0);
+        y = LOOK_TEXT_Y;
+        for (line = 0; line < LOOK_ROWS; line++, y += MENU_ROW_H) {
+            show_one_line(LOOK_X0 / 6, y);
+            /* show_one_line 已跳過行終符；與 show_string 同樣判斷雙 0。 */
+            if (*ss_ptr == 0) {
+                fb_flush();
+                return;
+            }
         }
-        font_draw_ascii(108, 68, 'v');      /* 原版閃爍游標位(18,70) */
+        font_draw_ascii(108, LOOK_TEXT_Y + (LOOK_ROWS - 1) * MENU_ROW_H + 4, 'v');
         fb_flush();
         for (;;) {
             k = wait_key();
@@ -279,15 +286,15 @@ static const cmenu_t speed_menu =
 #define SPEED_BG_XBYTE ((SPEED_X - 2) / 8)
 #define SPEED_BG_Y (SPEED_Y - 1)
 #define SPEED_BG_BYTES 6
-#define SPEED_BG_ROWS (3 * 12 + 2)
+#define SPEED_BG_ROWS (3 * MENU_ROW_H + 2)
 #define speed_bg (gfx_scratch + 192)
 
 static uint8_t show_speed_menu(void)
 {
     uint8_t row;
 
-    /* 保存框及 13px 字模覆蓋的 x=80..127、y=11..48。
-     * 靜態速度選單不使用 tplbuf，暫借其區域 228B 保存父選單背景。 */
+    /* 保存框及 13px 字模覆蓋的 x=80..127、y=11..51。
+     * 靜態速度選單不使用 tplbuf，暫借其區域 246B 保存父選單背景。 */
     for (row = 0; row < SPEED_BG_ROWS; row++)
         memcpy(speed_bg + (uint16_t)row * SPEED_BG_BYTES,
                fb + ((uint16_t)SPEED_BG_Y + row) * FB_STRIDE + SPEED_BG_XBYTE,
@@ -331,7 +338,11 @@ static const cmenu_t sys_menu_cheat =
 static uint8_t show_sys_menu(void)
 {
     const cmenu_t *m = yobdc_mode() ? &sys_menu_cheat : &sys_menu;
-    return (pop_menu(SYS_X0, FRAME_Y0, m) == 0xFE) ? 2 : 0;
+    uint8_t r = pop_menu(SYS_X0, FRAME_Y0, m);
+
+    scroll_to_lcd();
+    fb_flush();
+    return (r == 0xFE) ? 2 : 0;
 }
 
 /* ---- 主選單 ---- */

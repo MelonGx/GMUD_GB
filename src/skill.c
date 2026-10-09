@@ -10,6 +10,7 @@
 #include "game.h"       /* busy_flag */
 #include "gamedata.h"
 #include "goods.h"
+#include "goods_impl.h"
 #include "skill.h"
 #include "save.h"
 #include "text.h"
@@ -369,28 +370,10 @@ static void if_parry(void)
     dmenu_buf[0] = n;
 }
 
-/* 一行 GB2312/ASCII 混排佔幾個半形格(全形 2 格,半形 1 格),
- * 語義與 show_one_line_to 的推進一致;遇 0/0xFF 行終止。 */
-static uint8_t line_cells(const uint8_t *s)
-{
-    uint8_t n = 0;
-
-    while (*s && *s != 0xFF) {
-        if (*s & 0x80) {
-            s += 2;
-            n += 2;
-        } else {
-            s++;
-            n += 1;
-        }
-    }
-    return n;
-}
-
 /* 等效 skill.s skill_desc + show_desc:底部一行「等級描述 等級/潛能」 */
 static void skill_show_desc(void)
 {
-    uint8_t y, lv, cells;
+    uint8_t y, lv;
     uint16_t v;
     uint8_t *tpl = gfx_scratch + 192;
 
@@ -424,14 +407,8 @@ static void skill_show_desc(void)
     fix_mt_kfdesc_msg(tpl);
     format_string(tpl);
 
-    clear_nline2(FB_ROWS - 14, 14);
-    ss_ptr = OutBuf;
-    /* 原版 show_desc 是 `ldx #8` 固定左緣(x=48px),描述字數短時整行明顯
-     * 偏右;2026-07-29 用戶要求改居中。行寬 26 格,對齊粒度 6px。 */
-    cells = line_cells(OutBuf);
-    show_one_line((cells < 26) ? (uint8_t)((26 - cells) >> 1) : 0,
-                  FB_ROWS - 13);
-    fb_flush();
+    /* 維持 6px 格居中，白底及邊框依文字收縮並對齊畫面底部。 */
+    gi_show_bottom_desc(OutBuf, list_y1 + 3, 1);
 }
 
 /* 等效 skill.s use_skills/enable_it/disable_it */
@@ -464,7 +441,7 @@ static const cmenu_t kf_right_menu1 =
 static void sk_clear_right(void)
 {
     clean_list_right();
-    clear_nline2(FB_ROWS - 14, 14);
+    gi_clear_goods_desc();
 }
 
 /* 等效 init_skills_menu(kf_type=分類;kf_id=啟用中項供高亮) */

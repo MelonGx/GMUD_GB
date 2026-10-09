@@ -17,13 +17,14 @@
 #include "ui.h"
 #include "fb.h"
 #include "font.h"
+#include "menu.h"
 #include "guide_res.h"
 
 #include "guide_data.h"
 
 #define VIS_LINES 11
 #define LINE_H    13
-#define SECTION_MENU_STEP 15
+#define SECTION_MENU_STEP MENU_ROW_H
 #define MAX_LINE_BYTES 30
 
 #define VIEW_H    (VIS_LINES * LINE_H)   /* 143:可視區像素高 */

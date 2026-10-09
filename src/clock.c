@@ -76,7 +76,7 @@ void heart_beat(void) BANKED
                 hero.man_effhp++;
         }
 
-        /* 內力:基本內功等級/次 */
+        /* 內力:基本内功等級/次 */
         if (hero.man_maxfp == 0)
             continue;
         if (hero.man_fp >= hero.man_maxfp)

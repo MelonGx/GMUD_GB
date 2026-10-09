@@ -27,6 +27,7 @@
 #include "theme_data.h"
 #include "input_py.h"
 #include "guide.h"
+#include "menu.h"
 
 #define SAVE_INTERVAL 300
 
@@ -35,7 +36,7 @@ static const uint8_t s_gmud[]  = "GMUD";
 static const uint8_t s_title[] = "\xD3\xA2\xD0\xDB\xCC\xB3\xCB\xB5";    /* 英雄坛说 */
 /* 標題畫面底部出處(2026-08-02 用戶要求):移植自文曲星NC2000版源码。
  * 9 個全形 ×12px + 6 個半形 ×6px = 144px,置中 x=8;12px 行高 13,
- * 放 y=120(佔 120..132,離 fb 底 143 留 11 列,底部要留白感)——選單最末項在 y=80,
+ * 放 y=120(佔 120..132,離 fb 底 143 留 11 列,底部要留白感)——選單最末項在 y=78,
  * 不相碰。分成三段字面量拼接,免得 \xC7 後面接 'N' 之類被當成貪心的
  * 十六進位轉義。 */
 static const uint8_t s_from[] =
@@ -250,13 +251,13 @@ static uint8_t name_ui(void)
         font_draw_text(4, 2, s_name);
         for (k = 0; k < 8; k++)
             font_draw_text((k < 5) ? 20 : 92,
-                           (uint8_t)(16 + (k % 5) * 13), name_tbl[k]);
-        font_draw_text(92, 16 + 3 * 13, s_en);      /* 第 9 項 */
-        font_draw_text(92, 16 + 4 * 13, s_cn);      /* 第 10 項(拼音) */
+                           (uint8_t)(16 + (k % 5) * MENU_ROW_H), name_tbl[k]);
+        font_draw_text(92, 16 + 3 * MENU_ROW_H, s_en);      /* 第 9 項 */
+        font_draw_text(92, 16 + 4 * MENU_ROW_H, s_cn);      /* 第 10 項(拼音) */
 
         for (;;) {
             x = (cur < 5) ? 12 : 84;
-            y = (uint8_t)(16 + (cur % 5) * 13);
+            y = (uint8_t)(16 + (cur % 5) * MENU_ROW_H);
             cursor_show(x, y);
             k = wait_key_rep();
             cursor_hide(x, y);
@@ -295,7 +296,7 @@ static uint8_t name_ui(void)
             for (row = 0; row < 4; row++)
                 for (col = 0; col < 13; col++)
                     font_draw_ascii((uint8_t)(6 + col * 12),
-                                    (uint8_t)(24 + row * 14),
+                                    (uint8_t)(24 + row * MENU_ROW_H),
                                     (uint8_t)(base[row] + col));
             row = 0;
             col = 0;
@@ -306,11 +307,11 @@ static uint8_t name_ui(void)
                     font_draw_ascii((uint8_t)(48 + i * 8), 2,
                                     (i < len) ? buf[i] : (uint8_t)'_');
                 x = (uint8_t)(5 + col * 12);
-                y = (uint8_t)(24 + row * 14);
-                ui_invert(x, y, 10, 13);
+                y = (uint8_t)(24 + row * MENU_ROW_H);
+                ui_invert(x, y, 10, 12);
                 fb_flush();
                 k = wait_key_rep();
-                ui_invert(x, y, 10, 13);
+                ui_invert(x, y, 10, 12);
 
                 if (k == K_UP)
                     row = row ? row - 1 : 3;
@@ -359,16 +360,16 @@ static uint8_t adjust_attr(void)
     ui_vline(5, 4, 75);
     ui_vline(155, 4, 75);
     for (i = 0; i < 4; i++) {
-        font_draw_text(24, (uint8_t)(9 + i * 15), attr_lbl[i]);
-        draw2(84, (uint8_t)(9 + i * 15), attr[i]);
+        font_draw_text(24, (uint8_t)(9 + i * MENU_ROW_H), attr_lbl[i]);
+        draw2(84, (uint8_t)(9 + i * MENU_ROW_H), attr[i]);
     }
-    font_draw_text(112, 24, s_left);        /* 余点 */
-    draw2(120, 39, spare);
+    font_draw_text(112, 9 + MENU_ROW_H, s_left);        /* 余点 */
+    draw2(120, 9 + 2 * MENU_ROW_H, spare);
 
     for (;;) {
-        cursor_show(12, (uint8_t)(9 + ptr * 15));
+        cursor_show(12, (uint8_t)(9 + ptr * MENU_ROW_H));
         k = wait_key_rep();
-        cursor_hide(12, (uint8_t)(9 + ptr * 15));
+        cursor_hide(12, (uint8_t)(9 + ptr * MENU_ROW_H));
 
         if (k == K_UP) {                    /* 原版 1..4 迴繞 */
             ptr = ptr ? ptr - 1 : 3;
@@ -379,15 +380,15 @@ static uint8_t adjust_attr(void)
             if (v != 10) {
                 attr[ptr] = v - 1;
                 spare++;
-                draw2(84, (uint8_t)(9 + ptr * 15), attr[ptr]);
-                draw2(120, 39, spare);
+                draw2(84, (uint8_t)(9 + ptr * MENU_ROW_H), attr[ptr]);
+                draw2(120, 9 + 2 * MENU_ROW_H, spare);
             }
         } else if (k == K_LEFT) {           /* 原版 left_func:attr++ */
             if (spare && attr[ptr] != 30) {
                 attr[ptr]++;
                 spare--;
-                draw2(84, (uint8_t)(9 + ptr * 15), attr[ptr]);
-                draw2(120, 39, spare);
+                draw2(84, (uint8_t)(9 + ptr * MENU_ROW_H), attr[ptr]);
+                draw2(120, 9 + 2 * MENU_ROW_H, spare);
             }
         } else if (k == K_CR) {             /* 原版 enter_func:余點須 0 */
             if (spare == 0)
@@ -431,12 +432,12 @@ static uint8_t slot_pick(uint8_t newmode, uint8_t have0, uint8_t have1,
     fb_clear();
     font_draw_text(24, 12, s_slot1);
     font_draw_text(68, 12, have0 ? nm0 : s_empty);
-    font_draw_text(24, 30, s_slot2);
-    font_draw_text(68, 30, have1 ? nm1 : s_empty);
+    font_draw_text(24, 12 + MENU_ROW_H, s_slot2);
+    font_draw_text(68, 12 + MENU_ROW_H, have1 ? nm1 : s_empty);
 
     cur = (!newmode && !have0) ? 1 : 0;
     for (;;) {
-        y = cur ? 30 : 12;
+        y = (uint8_t)(12 + cur * MENU_ROW_H);
         cursor_show(14, y);
         k = wait_key();
         cursor_hide(14, y);
@@ -495,18 +496,18 @@ static uint8_t title_screen(void)
         font_draw_text(8, 120, s_from);
         if (any) {
             font_draw_text(56, 52, s_cont);
-            font_draw_text(56, 66, s_restart);
-            font_draw_text(56, 80, s_guide);
+            font_draw_text(56, 52 + MENU_ROW_H, s_restart);
+            font_draw_text(56, 52 + 2 * MENU_ROW_H, s_guide);
             n = 3;
         } else {
             font_draw_text(56, 52, s_start);
-            font_draw_text(56, 66, s_guide);
+            font_draw_text(56, 52 + MENU_ROW_H, s_guide);
             n = 2;
         }
 
         cur = 0;
         for (;;) {
-            y = (uint8_t)(52 + cur * 14);
+            y = (uint8_t)(52 + cur * MENU_ROW_H);
             cursor_show(46, y);
             k = wait_key();
             cursor_hide(46, y);

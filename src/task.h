@@ -32,7 +32,7 @@ extern __at(SRAM_TASK_GBUF) uint8_t task_gbuf[SRAM_TASK_GBUF_LEN];  /* game_buf 
 
 /* 官方秘技(原版 super_man→cheat_mode;GBC 版主角名=yobdc):
  * 功能選單多「作弊」項(查看/修改數值+技能等級)、婆婆義工無經驗上限、
- * 菜花寶典免邪派條件。非 BANKED,bank 25/28 直呼。 */
+ * 菜花宝典免邪派條件。非 BANKED,bank 25/28 直呼。 */
 uint8_t yobdc_mode(void) BANKED;
 
 /* npc_talk 任務鏈(pyh_task→尋人達成→npc_quest);0=沒話說(接 dunno) */

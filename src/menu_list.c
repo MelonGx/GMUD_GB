@@ -9,7 +9,7 @@ uint8_t menu_list_frame(uint8_t x, uint8_t y, const cmenu_t *m) BANKED
 {
     uint8_t x0 = x - 2, y0 = y - 2;
     uint8_t x1 = x0 + 18 * 6;
-    uint8_t y1 = y0 + 5 * 12 + 3;
+    uint8_t y1 = y0 + 5 * MENU_ROW_H + 2;
     uint8_t xd = x0 + 4 * 6 + 3;
 
     fb_fill_rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0);

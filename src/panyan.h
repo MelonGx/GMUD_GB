@@ -1,4 +1,4 @@
-/* panyan.h - 遊戲山莊小遊戲(panyan.s,bank 27) */
+/* panyan.h - 游戏厅小遊戲(panyan.s,bank 27) */
 #ifndef PANYAN_H
 #define PANYAN_H
 #include <gb/gb.h>
@@ -8,6 +8,6 @@
 #define LINGBO_SCORE 573
 
 uint8_t panyan_dance(void) BANKED;  /* 跳舞毯(top_dance);1=最高分達門檻 */
-void panyan_ball(void) BANKED;      /* 投篮球(top_ball) */
+void panyan_ball(void) BANKED;      /* 投铅球(top_ball) */
 
 #endif

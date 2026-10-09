@@ -1,6 +1,6 @@
-/* panyan.c - 遊戲山莊小遊戲(逐例程移植原版 panyan.s,bank 27)
+/* panyan.c - 游戏厅小遊戲(逐例程移植原版 panyan.s,bank 27)
  *
- * 對照表:lian_dodge(跳舞毯)/lian_unarmed(投篮球)/game_box/
+ * 對照表:lian_dodge(跳舞毯)/lian_unarmed(投铅球)/game_box/
  *   draw_basket_box/move_basket/shoot_target/little_target/check_score/
  *   show_score/random_delay → 同名或同構
  * 入口 panyan_dance/panyan_ball 由 pyh_quest.c(item 201)呼叫;
@@ -119,12 +119,12 @@ static void py_digits(uint8_t x, uint8_t y, uint16_t v)
  * scroll_to_lcd 會把「上一次的字」原樣帶回 fb,而 font_draw_* 是 OR 疊加
  * (font.c rep_mode 預設 0),新舊數字疊在同一格就糊成黑塊
  * (2026-07-31 用戶回報跳舞毯 SCORE 欄 garbage;個位 0|3|6|9… 最先爛)。
- * 投篮球每輪開頭 py_basket_box() 先 memset scroll_buf 才畫分數,fb 裡的
+ * 投铅球每輪開頭 py_basket_box() 先 memset scroll_buf 才畫分數,fb 裡的
  * 字格本來就是空的,所以只有跳舞毯發作。
  *
  * 修法是把「畫字前字格是空的」這個前提補回來——畫之前清掉字格。範圍
  * x 8..95(byte 1..11)、y 2..PY_SCORE_ROWS-1,這塊在兩個遊戲裡都只有
- * 分數文字:跳舞毯場地全在 y>=DANCE_TOP(32);投篮球外框只佔 byte 0/19、
+ * 分數文字:跳舞毯場地全在 y>=DANCE_TOP(32);投铅球外框只佔 byte 0/19、
  * 籃框 byte>=15、水平尺與兩顆球 y>=29。
  * 不用 font_draw_text_replace 是因為 SCORE(y=2)與 TOP(y=15)的 16px
  * 字格重疊 3 列,覆寫模式畫 TOP 會啃掉 SCORE 的下緣。 */
@@ -333,7 +333,7 @@ uint8_t panyan_dance(void) BANKED
     return (py_top >= LINGBO_SCORE) ? 1 : 0;
 }
 
-/* ================= 投篮球(lian_unarmed) ================= */
+/* ================= 投铅球(lian_unarmed) ================= */
 
 static void py_ball_at(uint8_t x, uint8_t y, uint8_t draw)
 {
@@ -379,7 +379,7 @@ static void py_basket_box(void)
     py_present_score();                     /* memset 過 scroll_buf,要重畫 */
 }
 
-/* 投篮球的節奏。原版 panyan.s 的 delay 單位是 1 tick = 1/256 秒 = 3.906ms:
+/* 投铅球的節奏。原版 panyan.s 的 delay 單位是 1 tick = 1/256 秒 = 3.906ms:
  *   飛行 shoot_target 每點 10 tick × PY_ROUTE_N(83)點 = 3.24 秒
  *   悶場 little_target        240 tick               = 938ms
  *   滾球 random_delay 5/40/20/40 tick,均勻 → 平均 26.25 tick = 102.5ms/px

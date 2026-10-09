@@ -529,7 +529,7 @@ static void cal_damage(uint8_t *ob, uint8_t *yo)
     }
 }
 
-/* 分身(fenshen):kar==0xFF 且 random(100) < per → 完全閃過 */
+/* 忍法影分身(fenshen):kar==0xFF 且 random(100) < per → 完全閃過 */
 static uint8_t fenshen(uint8_t is_man)
 {
     uint8_t *s = is_man ? man_state() : npc_state();
@@ -538,7 +538,7 @@ static uint8_t fenshen(uint8_t is_man)
         return 1;                                /* 未使用分身 → 正常 */
     if (random_it(100) >= s[PER_OFF])
         return 1;
-    show_fight_msg(ft_fenshen_dodge_msg);             /* 分身閃過,攻擊落空 */
+    show_fight_msg(ft_fenshen_dodge_msg);             /* 忍法影分身閃過,攻擊落空 */
     return 0;
 }
 
@@ -782,7 +782,7 @@ void attack_npc(void)
     ratio = percent(wound_flag ? npc.npc_effhp : npc.npc_hp, npc.npc_maxhp);
     get_result_msg(ratio, wound_flag, damage_type, damage_point);
 
-    /* XI_KF 吸血:等級×傷害/100 → 主角回血(上限 effhp) */
+    /* XI_KF 吸血大法:等級×傷害/100 → 主角回血(上限 effhp) */
     y = find_kf(XI_KF);
     if (y != 0xFF) {
         uint16_t heal = (uint16_t)((uint32_t)hero.man_kf[y + 1]
@@ -971,7 +971,7 @@ uint8_t who_win(void)
     return 0;                                     /* 雙方存活 */
 }
 
-/* 等效 fight.s final_fight:BOSS 開場白 →(邪帝可拒戰)→ 對局。
+/* 等效 fight.s final_fight:BOSS 開場白 →(道德和尚可拒戰)→ 對局。
  * 原版鍵 'b'=拒(exit 2)/'n'=打 → GBC B/A。回 fight_exit_code。 */
 uint8_t final_fight(uint8_t ex) BANKED
 {
@@ -1097,8 +1097,8 @@ uint8_t fight_perform_action(void) BANKED
         return 2;
     }
     if (who_win())                               /* 原版 to_perform 成功後顯式
-                                                  * 判定:直接傷害類(飛擲/震/
-                                                  * 神倒)不經 attack_xxx */
+                                                  * 判定:直接傷害類(流星飞掷/震字诀/
+                                                  * 神倒鬼跌)不經 attack_xxx */
         return 2;
     refresh_fight();
     attack_man();                                /* NPC 反擊一擊 */

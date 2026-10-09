@@ -39,7 +39,7 @@ static uint8_t get_lvl(uint8_t id)
 
 /* ---- 各師父(回傳 1=收) ---- */
 
-static uint8_t shangjianming(void)          /* 商劍鳴(八卦刀) */
+static uint8_t shangjianming(void)          /* 商剑鸣(八卦刀) */
 {
     BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
     BS_REJECT_IF(hero.man_maxfp < 500, bs_bagua_maxfp_msg)
@@ -48,13 +48,13 @@ static uint8_t shangjianming(void)          /* 商劍鳴(八卦刀) */
     BS_ACCEPT(bs_shang_suc_msg);
 }
 
-static uint8_t shangbaozhen(void)           /* 商寶震 */
+static uint8_t shangbaozhen(void)           /* 商宝震 */
 {
     BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
     BS_ACCEPT(bs_baozhen_suc_msg);
 }
 
-static uint8_t wangweiyang(void)            /* 王維揚 */
+static uint8_t wangweiyang(void)            /* 王维扬 */
 {
     BS_REJECT_IF(hero.man_gender == 1, bs_bagua_gender_msg)
     BS_REJECT_IF(hero.man_maxfp < 800, bs_bagua_maxfp_msg)
@@ -63,7 +63,7 @@ static uint8_t wangweiyang(void)            /* 王維揚 */
     BS_ACCEPT(bs_wang_suc_msg);
 }
 
-static uint8_t liqingzhao(void)             /* 李清照(花間派) */
+static uint8_t liqingzhao(void)             /* 李青照(花间派) */
 {
     BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
     BS_REJECT_IF(hero.man_int < 31 && hero.man_per < 25, bs_li_per_msg)
@@ -78,56 +78,56 @@ static uint8_t pingpopo(void)               /* 平婆婆 */
     BS_ACCEPT(bs_ping_suc_msg);
 }
 
-static uint8_t sangqinghong(void)           /* 桑青虹 */
+static uint8_t sangqinghong(void)           /* 桑轻虹 */
 {
     BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
     BS_REJECT_IF(get_lvl(MEIHUA_KF) < 60, bs_hua_ulvl_msg)
     BS_ACCEPT(bs_hua_suc_msg);
 }
 
-static uint8_t tangwanci(void)              /* 唐婉詞 */
+static uint8_t tangwanci(void)              /* 唐晚词 */
 {
     BS_REJECT_IF(hero.man_gender == 0, bs_hua_gender_msg)
     BS_REJECT_IF(get_lvl(MEIHUA_KF) < 30, bs_hua_ulvl_msg)
     BS_ACCEPT(bs_hua_suc_msg);
 }
 
-static uint8_t fangzhanglao(void)           /* 方丈老(紅蓮教) */
+static uint8_t fangzhanglao(void)           /* 方长老(红莲教) */
 {
     BS_ACCEPT(bs_honglian_suc_msg);
 }
 
-static uint8_t yuhongru(void)               /* 余泓儒 */
+static uint8_t yuhongru(void)               /* 余鸿儒 */
 {
     BS_REJECT_IF(get_lvl(TONGJI_KF) < 100, bs_yu_flvl_msg)
     BS_REJECT_IF(hero.man_str < 30, bs_yu_str_msg)
     BS_ACCEPT(bs_honglian_suc_msg);
 }
 
-static uint8_t hezhongyang(void)            /* 賀中央(尹賀谷) */
+static uint8_t hezhongyang(void)            /* 和仲阳(尹贺谷) */
 {
     BS_REJECT_IF(get_lvl(RENSHU_KF) < 120, bs_naja_flvl_msg)
     BS_REJECT_IF(hero.man_str < 32, bs_naja_str_msg)
     BS_ACCEPT(bs_hezhong_suc_msg);
 }
 
-static uint8_t meina(void)                  /* 梅十三 */
+static uint8_t meina(void)                  /* 陈美娜 */
 {
     BS_REJECT_IF(get_lvl(WUFA_KF) < 60, bs_huashi_ulvl_msg)
     BS_ACCEPT(bs_naja_suc_msg);
 }
 
-static uint8_t tengwangwan(void)            /* 滕王晚 */
+static uint8_t tengwangwan(void)            /* 藤王丸 */
 {
     BS_ACCEPT(bs_naja_suc_msg);
 }
 
-static uint8_t cangyue(void)                /* 藏月道長(太極門) */
+static uint8_t cangyue(void)                /* 苍月道长(太极门) */
 {
     BS_ACCEPT(bs_taiji_suc_msg);
 }
 
-static uint8_t qingxu(void)                 /* 清虛道長 */
+static uint8_t qingxu(void)                 /* 清虚道长 */
 {
     BS_REJECT_IF(hero.man_maxfp < 1500, bs_qingxu_maxfp_msg)
     BS_REJECT_IF(get_lvl(TAIJIG_KF) < 120, bs_qingxu_flvl_msg)
@@ -136,7 +136,7 @@ static uint8_t qingxu(void)                 /* 清虛道長 */
     BS_ACCEPT(bs_qingxu_suc_msg);
 }
 
-static uint8_t jiaotou(void)                /* 雪山教頭 */
+static uint8_t jiaotou(void)                /* 雪山教头 */
 {
     BS_REJECT_IF(hero.man_dex < 22, bs_xueshan_dex_msg)
     BS_ACCEPT(bs_jiaotou_suc_msg);
@@ -149,7 +149,7 @@ static uint8_t bairuide(void)               /* 白瑞德 */
     BS_ACCEPT(bs_bairui_suc_msg);
 }
 
-static uint8_t fengwanjian(void)            /* 風萬箭 */
+static uint8_t fengwanjian(void)            /* 封万剑 */
 {
     BS_REJECT_IF(hero.man_dex < 23, bs_xueshan_dex_msg)
     BS_REJECT_IF(get_lvl(XUESHANG_KF) < 40, bs_fengwan_flvl_msg)
@@ -170,7 +170,7 @@ static const bs_fn bs_fn_tbl[18] = {
     shangjianming, shangbaozhen, wangweiyang, liqingzhao,
     pingpopo, sangqinghong, tangwanci, fangzhanglao,
     yuhongru, hezhongyang, meina, tengwangwan,
-    cangyue, cangyue /* gusong 同台詞同無條件 */, qingxu, jiaotou,
+    cangyue, cangyue /* 古松道长同台詞同無條件 */, qingxu, jiaotou,
     bairuide, fengwanjian,
 };
 

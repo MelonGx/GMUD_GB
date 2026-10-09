@@ -413,7 +413,7 @@ static void refresh_data(uint8_t val, uint8_t pos)
 #define FENSHEN_TAG0 0x46
 #define FENSHEN_TAG1 0x53
 
-/* reserve_buf[1..2] 標記 BSC 影分身殘留。雙字節避免舊存檔的保留區
+/* reserve_buf[1..2] 標記 BSC 忍法影分身殘留。雙字節避免舊存檔的保留區
  * 偶然被誤認；man_kar==0xFF 另兼容標記加入前已產生的舊殘留。 */
 static uint8_t fenshen_feature_marked(void)
 {
@@ -435,8 +435,8 @@ static void fenshen_feature_unmark(void)
     hero.reserve_buf[2] = 0;
 }
 
-/* 回到非影分身狀態的合法值。福緣沒有後天加成；容貌要包含目前
- * 駐顏術等級，不能直接退回先天值。 */
+/* 回到非忍法影分身狀態的合法值。福緣沒有後天加成；容貌要包含目前
+ * 驻颜术等級，不能直接退回先天值。 */
 static void restore_fenshen_base(void)
 {
     uint8_t y = find_kf(LOOKS_KF);
@@ -455,26 +455,14 @@ void fenshen_disable_bsc_feature(void) BANKED
     fenshen_feature_unmark();
 }
 
-/* 對局在 delay 歸零前結束：EXT/ADV 還原三花與影分身；BSC 保留。
- * 影分身三檔皆清本場槽；BSC 三花槽沿用原行為，於下場初始化清除。 */
+/* 提前離場：EXT/ADV 按槽主人還原所有非零位置，並清全部本場槽。
+ * 沿用到期時的保存值還原規則；BSC 仍僅清忍法影分身槽、不還原數值。 */
 void perform_fight_end(void) BANKED
 {
     uint8_t saved = obj_flag;
     uint8_t found, y, o;
 
-    if (speed_mode != 2) {
-        for (o = 0; o < PTEMP_SIZE + NPC_PTEMP_SIZE; o += 6) {
-            if (pf_area[o] != SANHUA_PF)
-                continue;
-            obj_flag = (o < PTEMP_SIZE) ? 0x80 : 0x00;
-            refresh_data(pf_area[o + 1], pf_area[o + 2]);
-            refresh_data(pf_area[o + 3], pf_area[o + 4]);
-            pf_area[o] = 0xFF;
-            for (y = 1; y < 6; y++)
-                pf_area[o + y] = 0;
-        }
-    }
-
+    /* 先記錄並處理主角忍法影分身，清槽後也不會誤走後備重算。 */
     obj_flag = 0x80;
     found = find_ptemp(FENSHEN_PF);
     if (found) {
@@ -487,6 +475,16 @@ void perform_fight_end(void) BANKED
             pf_area[ptemp_off + y] = 0;
     }
     if (speed_mode != 2) {
+        for (o = 0; o < PTEMP_SIZE + NPC_PTEMP_SIZE; o += 6) {
+            if (pf_area[o] != 0xFF) {
+                obj_flag = (o < PTEMP_SIZE) ? 0x80 : 0x00;
+                refresh_data(pf_area[o + 1], pf_area[o + 2]);
+                refresh_data(pf_area[o + 3], pf_area[o + 4]);
+            }
+            pf_area[o] = 0xFF;
+            for (y = 1; y < 6; y++)
+                pf_area[o + y] = 0;
+        }
         if (!found && (fenshen_feature_marked() || hero.man_kar == 0xFF))
             restore_fenshen_base();
         fenshen_feature_unmark();
@@ -649,7 +647,7 @@ static uint32_t skill_xxx_power(uint8_t defense, uint8_t micro)
     set_kf = KF; set_level = LEVEL; \
     if (judge_kf(TYPE)) return 1
 
-/* 八卦門:化掌为刀(掌)ZHANGDAO1 */
+/* 八卦门:化掌为刀(八卦游身掌)ZHANGDAO1 */
 static uint8_t zhangdao_gua(void)
 {
     uint16_t lv;
@@ -676,7 +674,7 @@ static uint8_t zhangdao_gua(void)
     return 0;
 }
 
-/* 八卦門:化掌为刀(阵)ZHANGDAO2 */
+/* 八卦门:化掌为刀(八阵八卦掌)ZHANGDAO2 */
 static uint8_t zhangdao_zhen(void)
 {
     uint16_t lv;
@@ -709,7 +707,7 @@ static uint8_t zhangdao_zhen(void)
     return 0;
 }
 
-/* 八卦門:刀影掌(掌)DAOYING1 */
+/* 八卦门:八卦刀影掌(八卦游身掌)DAOYING1 */
 static uint8_t daoying_gua(void)
 {
     if (get_obj_busy()) { return pf_fail(PT_MAN_BUSY); }
@@ -742,7 +740,7 @@ static uint8_t daoying_gua(void)
     return 0;
 }
 
-/* 八卦門:刀影掌(阵)DAOYING2 */
+/* 八卦门:八阵刀影掌(八阵八卦掌)DAOYING2 */
 static uint8_t daoying_zhen(void)
 {
     uint8_t at, st;
@@ -789,7 +787,7 @@ static uint8_t daoying_zhen(void)
     return 0;
 }
 
-/* 花間派:流星飞掷 FEIZHI */
+/* 红莲教:流星飞掷 FEIZHI */
 static uint8_t feizhi(void)
 {
     uint16_t lv0;
@@ -1116,7 +1114,7 @@ static uint8_t yinyang(void)
         return 0;
     }
 
-    /* yinyang_1:類刀影(buff 攻/膂 + 一擊) */
+    /* yinyang_1:類八卦刀影掌／八阵刀影掌(buff 攻/膂 + 一擊) */
     at = (uint8_t)o16(ATTACK_OFF);
     st = (uint8_t)o16(STR_OFF);
     temp_data = at;
@@ -1197,7 +1195,7 @@ static uint8_t zhen(void)
     return 0;
 }
 
-/* 花間派:三花 SANHUA */
+/* 花间派:三花 SANHUA */
 static uint8_t sanhua(void)
 {
     uint16_t lv;
@@ -1230,7 +1228,7 @@ static uint8_t sanhua(void)
     return 0;
 }
 
-/* 花間派:柳浪闻莺 LIULANG */
+/* 花间派:柳浪闻莺 LIULANG */
 static uint8_t liulang(void)
 {
     PF_REQUIRE_KF(SANHUA_KF, 120, FORCE_KF);
@@ -1262,7 +1260,7 @@ static uint8_t liulang(void)
     return 0;
 }
 
-/* 花間派:落英缤纷 LUOYING */
+/* 花间派:落英缤纷 LUOYING */
 static uint8_t luoying(void)
 {
     PF_REQUIRE_KF(SANHUA_KF, 120, FORCE_KF);
@@ -1429,7 +1427,7 @@ static uint8_t bingxin(void)
     return 0;
 }
 
-/* 忍者流:旋风三连斩 LIANZHAN */
+/* 尹贺谷:旋风三连斩 LIANZHAN */
 static uint8_t lianzhan(void)
 {
     if (get_obj_busy()) { return pf_fail(PT_MAN_BUSY); }
@@ -1459,7 +1457,7 @@ static uint8_t lianzhan(void)
     return 0;
 }
 
-/* 忍者流:迎风一刀斩 YIDAO(YIDAOZHAN) */
+/* 尹贺谷:迎风一刀斩 YIDAO(YIDAOZHAN) */
 static uint8_t yidao(void)
 {
     uint8_t dm, at;
@@ -1497,7 +1495,7 @@ static uint8_t yidao(void)
     return 0;
 }
 
-/* 忍者流:影分身 FENSHEN */
+/* 尹贺谷:忍法影分身 FENSHEN */
 static uint8_t fenshen(void)
 {
     uint16_t lv;
@@ -1533,7 +1531,7 @@ static uint8_t fenshen(void)
     return 0;
 }
 
-/* 忍者流:烟幕 YIANMU */
+/* 尹贺谷:忍术烟幕 YIANMU */
 static uint8_t yianmu(void)
 {
     uint16_t r1, t1;

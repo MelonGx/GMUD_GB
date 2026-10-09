@@ -19,7 +19,10 @@
 #include "fb.h"
 #include "skill.h"
 #include "goods.h"
+#include "goods_impl.h"
 #include "gamedata.h"
+#include "menu.h"
+#include "blit.h"
 
 /* ---- GB2312 選單標籤(全為 2 漢字 + 0xFF = 5B)---- */
 static const uint8_t ct_money[]  = { 0xBD,0xF0,0xC7,0xAE,0xFF };
@@ -82,6 +85,24 @@ static void show_rom_line(const uint8_t *s, uint8_t xh, uint8_t y)
 #define CUR_X   12
 #define CUR_W    3
 #define CUR_H    5
+#define VROWS  7
+#define MENU_X 3           /* xh 位置(半形字=6px 起) */
+#define MENU_Y 4           /* 首行像素 y */
+#define LINE_H MENU_ROW_H
+#define VALUE_Y_MIN 97     /* 七行列表框底 95；保留 y=96 的空白 */
+
+/* 子頁返回時先還原地圖，避免七行舊框殘留在兩行頂層外。 */
+static void draw_list_frame(uint8_t rows)
+{
+    uint8_t y1 = MENU_Y + rows * LINE_H;
+
+    scroll_to_lcd();
+    fb_fill_rect(CUR_X - 2, MENU_Y - 2, 148, y1 - MENU_Y + 3, 0);
+    ui_hline(CUR_X - 2, 157, MENU_Y - 2);
+    ui_hline(CUR_X - 2, 157, y1);
+    ui_vline(CUR_X - 2, MENU_Y - 2, y1);
+    ui_vline(157, MENU_Y - 2, y1);
+}
 
 static void draw_cursor(uint8_t y, uint8_t on)
 {
@@ -105,11 +126,8 @@ static void edit_stat(uint8_t idx)
         msg[1] = (uint8_t)((uint16_t)p);
         msg[2] = (uint8_t)((uint16_t)p >> 8);
         msg[3] = 0; msg[4] = 0; msg[5] = 0;
-        clear_nline2(116, 13);
         format_string(msg);
-        ss_ptr = OutBuf;
-        show_one_line(1, 116);
-        fb_flush();
+        gi_show_bottom_desc(OutBuf, VALUE_Y_MIN, 0);
         k = wait_key_rep();
         if (k == K_ESC) break;
 
@@ -135,21 +153,16 @@ static void edit_stat(uint8_t idx)
         if (sz >= 2) p[1] = (uint8_t)(v >> 8);
         if (sz >= 4) { p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
     }
-    clear_nline2(116, 13);
+    gi_clear_bottom_desc(VALUE_Y_MIN);
     fb_flush();
 }
 
 /* ---- 查看:14 項捲動列表 + 數值編輯 ---- */
-#define VROWS  7
-#define MENU_X 3           /* xh 位置(半形字=6px 起) */
-#define MENU_Y 4           /* 首行像素 y */
-#define LINE_H 13
-
 static void draw_stat_list(uint8_t top, uint8_t sel)
 {
     uint8_t i;
 
-    clear_nline2(MENU_Y, VROWS * LINE_H);
+    draw_list_frame(VROWS);
     for (i = 0; i < VROWS && top + i < 14; i++) {
         if (top + i == sel)
             draw_cursor(MENU_Y + i * LINE_H, 1);
@@ -181,7 +194,7 @@ static void show_values(void)
         }
         draw_stat_list(top, sel);
     }
-    clear_nline2(MENU_Y, VROWS * LINE_H);
+    scroll_to_lcd();
     fb_flush();
 }
 
@@ -201,7 +214,7 @@ static void cheat_skills(void)
 
     sel = 0; top = 0;
     for (;;) {
-        clear_nline2(MENU_Y, VROWS * LINE_H);
+        draw_list_frame(VROWS);
         for (i = 0; i < VROWS && top + i < n; i++) {
             if (top + i == sel)
                 draw_cursor(MENU_Y + i * LINE_H, 1);
@@ -215,10 +228,8 @@ static void cheat_skills(void)
             msg[1] = (uint8_t)((uint16_t)p);
             msg[2] = (uint8_t)((uint16_t)p >> 8);
             msg[3] = 0; msg[4] = 0; msg[5] = 0;
-            clear_nline2(116, 13);
             format_string(msg);
-            ss_ptr = OutBuf;
-            show_one_line(1, 116);
+            gi_show_bottom_desc(OutBuf, VALUE_Y_MIN, 0);
         }
         fb_flush();
         k = wait_key_rep();
@@ -232,11 +243,8 @@ static void cheat_skills(void)
                     msg[1] = (uint8_t)((uint16_t)p);
                     msg[2] = (uint8_t)((uint16_t)p >> 8);
                     msg[3] = 0; msg[4] = 0; msg[5] = 0;
-                    clear_nline2(116, 13);
                     format_string(msg);
-                    ss_ptr = OutBuf;
-                    show_one_line(1, 116);
-                    fb_flush();
+                    gi_show_bottom_desc(OutBuf, VALUE_Y_MIN, 0);
                     k = wait_key_rep();
                     if (k == K_ESC) break;
                     lv = *p;
@@ -257,7 +265,7 @@ static void cheat_skills(void)
                     }
                     *p = (uint8_t)lv;
                 }
-                clear_nline2(116, 13);
+                gi_clear_bottom_desc(VALUE_Y_MIN);
             }
         }
         if (k == K_UP && sel > 0) {
@@ -269,8 +277,7 @@ static void cheat_skills(void)
             if (sel >= top + VROWS) top = sel - VROWS + 1;
         }
     }
-    clear_nline2(MENU_Y, VROWS * LINE_H);
-    clear_nline2(116, 13);
+    scroll_to_lcd();
     fb_flush();
 }
 
@@ -280,7 +287,7 @@ void cheat_main(void) BANKED
     uint8_t sel = 0, k;
 
     for (;;) {
-        clear_nline2(MENU_Y, 2 * LINE_H);
+        draw_list_frame(2);
         draw_cursor(MENU_Y + sel * LINE_H, 1);
         show_rom_line(ct_view, MENU_X, MENU_Y);
         show_rom_line(ct_skill, MENU_X, MENU_Y + LINE_H);
@@ -295,5 +302,6 @@ void cheat_main(void) BANKED
             else          cheat_skills();
         }
     }
-    clear_nline2(MENU_Y, 2 * LINE_H);
+    scroll_to_lcd();
+    fb_flush();
 }

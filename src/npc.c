@@ -1,7 +1,7 @@
 /* npc.c - NPC 互動,移植原版 npc.s npc_action/init_menu + talk.s object_say
  *
  * 選單四變體(npc.s npc_menu1-4,BOX_MENU 直列帶框):
- *   特殊表:TEACHER(31)/DAXIA(7)→學習,KILLER(125)→通用
+ *   特殊表:TEACHER(31,顾炎武)/DAXIA(7,独行大侠)→學習,KILLER(125)→通用
  *   man_master==id→學習;NONE_PAI(0)→通用;TRADE_PAI(255)→交易;其他→拜師
  * 處理器:npc_talk 已接(quest 前的 dunno 路徑);
  *        npc_look/npc_fight/npc_trade/npc_apprentice/npc_learn 隨對應模組接入
@@ -391,7 +391,7 @@ static uint8_t npc_learn(void)
     fb_flush();
     if (located_id == DAXIA_NPC && hero.man_exp < 200000UL) {
         obj_flag = 0x80;
-        format_string(mt_daxia_low_msg);    /* 大俠嫌你經驗淺 */
+        format_string(mt_daxia_low_msg);    /* 独行大侠嫌你經驗淺 */
         show_talk_msg();
     } else {
         master();
@@ -470,10 +470,10 @@ static void init_npc(void)
         return;
     }
 
-    y = find_npc_kf(BASIC_BARE_KF);     /* 基本拳腳 → str */
+    y = find_npc_kf(BASIC_BARE_KF);     /* 基本拳脚 → str */
     if (y != 0xFF)
         npc.npc_str += npc_kf[y + 1] / 10;
-    y = find_npc_kf(BASIC_DODGE_KF);    /* 基本輕功 → dex */
+    y = find_npc_kf(BASIC_DODGE_KF);    /* 基本轻功 → dex */
     if (y != 0xFF)
         npc.npc_dex += npc_kf[y + 1] / 10;
 }

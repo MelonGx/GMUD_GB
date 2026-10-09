@@ -149,7 +149,7 @@ static uint8_t net_receive_data(void)
             pf_show_fight_msg(NET_PKT_MSG);
             net_flag |= 0x80;
         }
-        /* 飛擲/震字訣等直接扣 HP 的絕招，新 HP 只在 completion
+        /* 飛擲/震字诀等直接扣 HP 的絕招，新 HP 只在 completion
          * 包才送到；perform 旗只應隱藏殘留訊息，不能跳過判勝。 */
         if (pf_who_win()) {
             combat_over = 1;

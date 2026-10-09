@@ -21,6 +21,10 @@ void gi_set_goods(void) BANKED;         /* 等效 set_goods */
 void gi_set_other_goods(void) BANKED;   /* 等效 set_other_goods */
 void gi_clear_goods_desc(void) BANKED;
 void gi_show_desc(uint8_t stride) BANKED;   /* 等效 goods_show_desc */
+/* 文字須在 WRAM/SRAM；min_y 是框頂下限，框底固定 FB_ROWS-1。 */
+void gi_show_bottom_desc(const uint8_t *text, uint8_t min_y,
+                         uint8_t centered) BANKED;
+void gi_clear_bottom_desc(uint8_t min_y) BANKED;
 
 void gi_use_food(uint8_t x) BANKED;
 void gi_use_drug(uint8_t x) BANKED;

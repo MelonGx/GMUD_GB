@@ -60,13 +60,14 @@ static void draw_pad(uint8_t x, uint8_t y, const uint8_t *dot,
                      uint8_t w) NONBANKED
 {
     uint8_t r, k, px;
+    uint8_t h = (w == 12) ? MENU_ROW_H : 12;
 
-    for (r = 0; r < 12; r++) {
+    for (r = 0; r < h; r++) {
         for (k = 0; k < w; k++) {
             uint8_t on = 0;
             px = x + k;
             if (w == 12) {
-                if (k >= 2 && k < 10)
+                if (r < 12 && k >= 2 && k < 10)
                     on = dot[r] & (0x80 >> (k - 2));
             } else {
                 on = dot[r] & (0x80 >> k);
@@ -79,7 +80,7 @@ static void draw_pad(uint8_t x, uint8_t y, const uint8_t *dot,
                     ~(0x80 >> (px & 7));
         }
     }
-    fb_mark_dirty(y, 12);
+    fb_mark_dirty(y, h);
 }
 
 /* ---- 引擎工作狀態 ---- */
@@ -215,7 +216,7 @@ static uint8_t item_position(uint8_t x, uint8_t y, uint8_t idx,
         ix += item_text_width(i);
     }
     *ix_out = ix;
-    *iy_out = y + row * 12;
+    *iy_out = y + row * MENU_ROW_H;
     return item_text_width(idx);
 }
 
@@ -237,9 +238,9 @@ static void draw_cursor_delta(uint8_t x, uint8_t y,
     }
 
     if (cm->style != MSTYLE_NORMAL && cm->line_form == 1) {
-        draw_pad(x, y + (old_cur - m_start) * 12,
+        draw_pad(x, y + (old_cur - m_start) * MENU_ROW_H,
                  pick_dot(old_cur), 12);
-        draw_pad(x, y + (new_cur - m_start) * 12,
+        draw_pad(x, y + (new_cur - m_start) * MENU_ROW_H,
                  pick_dot(new_cur), 12);
         fb_flush();
         return;
@@ -271,7 +272,7 @@ static uint8_t draw_scroll_delta(uint8_t x, uint8_t y,
     if (m_start == old_start + 1) {
         up = 1;
         entering = m_start + m_vis - 1;
-        ey = y + (m_vis - 1) * 12;
+        ey = y + (m_vis - 1) * MENU_ROW_H;
     } else if (old_start == m_start + 1) {
         up = 0;
         entering = m_start;
@@ -288,8 +289,8 @@ static uint8_t draw_scroll_delta(uint8_t x, uint8_t y,
     if (extent > m_view_w)
         return 0;
 
-    menu_shift_view(x, y, m_view_w, m_vis * 12, up);
-    oy = y + (old_cur - m_start) * 12;
+    menu_shift_view(x, y, m_view_w, m_vis * MENU_ROW_H, up);
+    oy = y + (old_cur - m_start) * MENU_ROW_H;
     if (cm->style == MSTYLE_NORMAL)
         ui_invert(x, oy, item_text_width(old_cur), 12);
     else
@@ -355,7 +356,7 @@ static void draw_menu(uint8_t x, uint8_t y)
             if (ix > xmax)
                 xmax = ix;
         }
-        iy += 12;
+        iy += MENU_ROW_H;
     }
     if (cm->framed) {
         uint8_t x0 = (x >= 3) ? x - 2 : 1;

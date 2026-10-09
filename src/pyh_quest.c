@@ -98,7 +98,7 @@ static void show_loop_msg(const uint8_t *msgs)
 }
 
 /* 等效 pyh_quest.s show_bonus:工錢 20 經驗 10 潛能 50 錢。
- * 婆婆任務獎勵一律不隨速度檔加倍(2026-07-17 用戶定版) */
+ * 老婆婆任務獎勵一律不隨速度檔加倍(2026-07-17 用戶定版) */
 static void work_bonus(void)
 {
     uint16_t e = 20;
@@ -146,7 +146,7 @@ static uint8_t do_pichai(void)
     return do_work(50, tm_pichai_msg);
 }
 
-/* 等效 fishing:釣竿(手持裝備)+40 精血,50% 上鉤,要魚簍才裝得走 */
+/* 等效 fishing:钓杆(手持裝備)+40 精血,50% 上鉤,要鱼篓才裝得走 */
 static void fishing(void)
 {
     uint8_t e = hero.man_equip[HANDS_ARM];
@@ -207,7 +207,7 @@ static void do_drink(void)
     tell_fmt(tm_drink_succ_msg);
 }
 
-/* 等效 sleep(床):要女兒紅,睡一覺過三個月 */
+/* 等效 sleep(床):要女儿红,睡一覺過三個月 */
 static void do_sleep(void)
 {
     uint8_t x = find_goods(MEIJIU_GOODS);
@@ -285,7 +285,7 @@ wanted:
     tell_fmt(tm_board1_msg);
 }
 
-/* ================= 遊戲山莊(panyan.s 入口,遊戲本體 bank 27) ========= */
+/* ================= 游戏厅(panyan.s 入口,遊戲本體 bank 27) ========= */
 
 /* ---- 凌波微步(GBC 原創):跳舞毯 LINGBO_SCORE 分獎勵 ----
  * 原版 panyan.s 的 cal_up_level 是空函式(只有 rts),小遊戲從沒接上武功;
@@ -526,7 +526,7 @@ uint8_t item_action_b(uint8_t idx) BANKED
         show_player();                  /* 等效 refresh_scroll */
         fb_flush();
         break;
-    case 1:                                 /* 遊戲山莊(跳舞毯/投篮球) */
+    case 1:                                 /* 游戏厅(跳舞毯/投铅球) */
         do_panyan();
         break;
     case 2:                                 /* 掃帚 */
@@ -565,7 +565,7 @@ uint8_t item_action_b(uint8_t idx) BANKED
         break;
     case 10:                                /* 魔宮:最終決戰 */
         return final_fight_item();
-    case 11:                                /* 書架(菜花寶典) */
+    case 11:                                /* 書架(菜花宝典) */
         baodian();
         break;
     case 12:                                /* 草蓆(繩索) */

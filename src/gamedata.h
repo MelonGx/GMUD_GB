@@ -58,7 +58,7 @@
 #define CLOTH_GOODS 42
 #define JIAOYI_KF 22
 
-/* GBC 原創輕功:凌波微步(跳舞毯 573 分,無派/逍遙派限定)。
+/* GBC 原創輕功:凌波微步(跳舞毯 573 分,無派/逍遥派限定)。
  * 閃避訊息不在 textbank,見 fight.c random_kf_action。 */
 #define LINGBO_KF 42
 

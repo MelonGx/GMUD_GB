@@ -15,6 +15,7 @@
 #include "menu.h"
 #include "ui.h"
 #include "fb.h"
+#include "blit.h"
 #include "res.h"
 #include "textbank_res.h"
 
@@ -118,26 +119,77 @@ static void get_goods_desc(uint8_t id)
     goods_desc_buf[181] = 0;
 }
 
-void gi_clear_goods_desc(void) BANKED
+void gi_clear_bottom_desc(uint8_t min_y) BANKED
 {
-    uint8_t y = list_y1 + 2;
+    uint8_t y = min_y - 1;
 
-    clear_nline2(y, FB_ROWS - y);
+    memcpy(fb + (uint16_t)y * FB_STRIDE,
+           scroll_buf + (uint16_t)y * FB_STRIDE,
+           (uint16_t)(FB_ROWS - y) * FB_STRIDE);
+    fb_mark_dirty(y, FB_ROWS - y);
 }
 
-/* 160x144: use the whole lower panel and wrap every description at once. */
+void gi_clear_goods_desc(void) BANKED
+{
+    gi_clear_bottom_desc(list_y1 + 3);
+}
+
+/* 按實際行數向上擴展底框；框內與行間各留 1px。 */
+void gi_show_bottom_desc(const uint8_t *text, uint8_t min_y,
+                         uint8_t centered) BANKED
+{
+    const uint8_t *p;
+    uint8_t line, nlines = 0, width, max_width = 0, w, c;
+    uint8_t max_lines = (FB_ROWS - 1 - min_y - 2) / MENU_ROW_H;
+    uint8_t xh = 1, x0, x1, y0, y;
+    uint8_t y1 = FB_ROWS - 1;
+
+    gi_clear_bottom_desc(min_y);
+    p = text;
+    while (nlines < max_lines && *p) {
+        width = 0;
+        while ((c = *p) != 0 && c != 0xFF) {
+            w = 6;
+            if (c & 0x80)
+                w = (c == 0xA2 && (p[1] == 0xFC || p[1] == 0xFD)) ? 4 : 12;
+            if (width + w > 150)
+                break;
+            width += w;
+            p += (c & 0x80) ? 2 : 1;
+        }
+        if (*p == 0 || *p == 0xFF)
+            p++;
+        if (width > max_width)
+            max_width = width;
+        nlines++;
+    }
+    if (nlines) {
+        if (centered) {
+            xh = (26 - (max_width + 5) / 6) >> 1;
+            if (xh < 1)
+                xh = 1;
+        }
+        x0 = xh * 6 - 2;
+        x1 = xh * 6 + max_width + 1;
+        y0 = y1 - nlines * MENU_ROW_H - 2;
+        y = y0 + 2;
+        fb_fill_rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0);
+        ui_hline(x0, x1, y0);
+        ui_hline(x0, x1, y1);
+        ui_vline(x0, y0, y1);
+        ui_vline(x1, y0, y1);
+        ss_ptr = text;
+        for (line = 0; line < nlines; line++, y += MENU_ROW_H)
+            show_one_line(xh, y);
+    }
+    fb_flush();
+}
+
 void gi_show_desc(uint8_t stride) BANKED
 {
-    uint8_t line, y;
-
     goods_id = dmenu_buf[1 + (uint16_t)menu_set * stride];
     get_goods_desc(goods_id & 0x7F);
-    ss_ptr = goods_desc_buf;
-    gi_clear_goods_desc();
-    y = list_y1 + 3;
-    for (line = 0; line < 5 && *ss_ptr; line++, y += 13)
-        show_one_line(0, y);
-    fb_flush();
+    gi_show_bottom_desc(goods_desc_buf, list_y1 + 3, 0);
 }
 
 /* ---- 使用(等效 use_goods 家族;attack/defense 負值鉗 0 照原版) ---- */
@@ -170,14 +222,15 @@ void gi_use_drug(uint8_t x) BANKED
     }
 }
 
+/* 裝卸命中／回避限制為 0..255；負裝備卸下加值的原版行為保留。 */
 static void wield_adjust(int8_t sign)
 {
     int16_t v;
 
     v = (int16_t)hero.man_attack + sign * (int8_t)goods_attr[3];
-    hero.man_attack = (v < 0) ? 0 : (uint8_t)v;
+    hero.man_attack = (v < 0) ? 0 : (v > 255) ? 255 : (uint8_t)v;
     v = (int16_t)hero.man_defense + sign * (int8_t)goods_attr[4];
-    hero.man_defense = (v < 0) ? 0 : (uint8_t)v;
+    hero.man_defense = (v < 0) ? 0 : (v > 255) ? 255 : (uint8_t)v;
 }
 
 /* 絕招擊落或投擲武器：與手動卸下相同地回退傷害、攻擊、防禦，
