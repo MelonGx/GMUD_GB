@@ -1,8 +1,8 @@
-本專案為《GMUD英雄坛说》的 GAMEBOY COLOR (GBC) 移植作品，移植自 Lee 開源的 NC2000 英雄坛说白金版 source code，由 Claude Fable 5 使用 GBDK 2020 製作而成。
+本專案為《GMUD英雄坛说》的 GAMEBOY COLOR (GBC) 移植作品，移植自 Lee 開源的 NC2000 英雄坛说白金版 source code，由 Claude Fable 5 使用 GBDK 2020 製作而成，後交由 ChatGPT 6.1 Sol 優化及修正。
 
 1. Menu 增加 速度 欄
    - EXT：與原版相同
-   - ADV：打坐 / 練功 / 學習 / 老婆婆任務 等的速度是原版 4 倍，戰鬥訊息速度是原版 2 倍
+   - ADV：打坐 / 練功 / 學習 / 老婆婆任務 等的速度是原版 8 倍，戰鬥訊息速度是原版 2 倍
    - BSC：除繼承 ADV 的改動之外，老婆婆任務以外獲得的報酬，是原版 8 倍
 
 2. 無密碼，存檔有兩個
@@ -23,8 +23,7 @@
 6. 支援 GAMEBOY 對戰線連線，但不支援 GBC 紅外線
 
 7. ROM 格式：MBC5 / 32 KiB RAM
-   - 不支援 DMG (厚磚 Gameboy)
-   - 不支援 MGB (Gameboy Pocket)
+   - 已試作了一個 DMG (厚磚 Gameboy) 及 MGB (Gameboy Pocket) 的預覽版，但暫不放源碼
 
 8. 編譯要求
    - tools/gbdk 目錄需放置 GBDK 2020 整個程式 (https://github.com/gbdk-2020/gbdk-2020)
